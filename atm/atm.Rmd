@@ -1,0 +1,348 @@
+---
+title: 'Bank ATM Cash Machine Forecast w/ Time Series'
+author: Rihad Variawa
+date: '2019-02-07'
+slug: bank
+categories:
+  - R
+  - Machine Learning
+tags: []
+header:
+  image: "headers/atm.jpg"
+summary: 'Forcast monthly residential energy usage'
+---
+
+## Preamble:
+
+This document focuses on the time series analysis. The variable ‘Cash’ is provided in hundreds of dollars.
+
+This is a time series spanning daily transactions from May 1, 2009 to April 30, 2010 from four ATMs.
+
+## Research question:
+
+1. forecast how much cash is taken out of 4 different ATM machines for May 2010
+
+## Structure of analysis:
+
+1. Exploratory Data Analysis
+2. Visualizations
+3. ACF and PACF
+4. Clean The Data
+5. Trend Preview
+6. Data Decomposition Plot
+7. Stationarity Test
+8. Model Data
+9. Transformation
+10. ARIMA Model
+11. Evaluation
+12. Box-Ljung Test
+13. Forecasting
+14. Model Accuracy
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## install packages if necessary
+if (!require("xts")) install.packages("xts")
+if (!require("xlsx")) install.packages("xlsx")
+if (!require("tseries")) install.packages("tseries")
+if (!require("forecast")) install.packages("forecast")
+```
+
+```{r}
+sourceURL <- "https://raw.githubusercontent.com/jzuniga123"
+file <- "/SPS/master/DATA%20624/ATM624Data.xlsx"
+download.file(paste0(sourceURL, file), "temp.xlsx", mode="wb")
+atm <- xlsx::read.xlsx("temp.xlsx", sheetIndex=1, header=T)
+invisible(file.remove("temp.xlsx"))
+```
+
+## Exploratory Data Analysis
+
+```{r}
+# preview first 5 rows
+head(atm)
+```
+
+```{r}
+class(atm)
+```
+
+```{r}
+str(atm)
+```
+
+```{r}
+# preview descriptive statistics on quantitative and qualitative variables
+summary(atm)
+```
+
+Skewed distribution since the mean is higher than the third quartile.
+
+```{r}
+# preview periods between dates in the time series
+xts::periodicity(unique(atm$DATE))
+```
+
+Dataframe spans daily transactions from May 1, 2009 to May 14, 2010.
+
+```{r}
+# preview observations that have no missing values
+atm[!complete.cases(atm), ]
+```
+
+ATM transactions have missing values.
+
+```{r}
+summary(factor(atm$ATM)[!is.na(atm$Cash) & atm$Cash %% 1 != 0])
+```
+
+There are non-integer transactions at ATM 4 implying that these data are likely debit card purchase transactions.
+
+## Visualizations
+
+```{r}
+# time plot represents a line graph that plots each observed value against the time of the observation, with a single line connecting each observation across the entire period
+par(mfrow=c(4, 2), mar = c(3, 5, 0, 0), oma = c(0, 0, 0.5, 0.5))
+for(i in 1:length(levels(atm$ATM))) {
+  atm_sub <- subset(atm, ATM == paste0("ATM", i))
+  atm_ts <- xts::xts(atm_sub$Cash, order.by=atm_sub$DATE)
+  n <- nrow(atm_ts); l <- rep(1, n); m <- rep(20, n); h <- rep(100, n)
+  print(plot(cbind(atm_ts, l, m,h), main=paste0("ATM", i)))
+  
+# histogram displays the frequency at which values in a vector occur.
+  hist(atm_ts, col="green", xlab="", main="")
+}
+```
+
+Observations:
+
+* Time Plots and Histograms for ATM1 and ATM2 are unremarkable. 
+* Time Plot and Histogram of ATM3 shows the data consists mostly of zero values with a handful of transactions occurring at the end of the series.
+* ATM3 will not be modeled due to these degenerative properties.
+* Time Plot and Histogram of ATM4 shows an extreme outlier around the three-quarter mark of the series. The horizontal lines in the Time Plots delineate $1, $20, and $100 in red, green, and blue; respectively.
+
+## ACF and PACF
+
+ACF plot shows the autocorrelations between each observation and its immediate predecessor (lagged observation). The PACF plot shows the autocorrelations between the current observation and each individual lagged observation The xts::xts()function converts data to a time series object which displays better in visualizations than time series objects created using other packages.
+
+```{r}
+par(mfrow=c(4, 2), mar = c(3, 5, 0, 0), oma = c(0, 0, 0.5, 0.5))
+for(i in 1:length(levels(atm$ATM))) {
+  atm_sub <- subset(atm, ATM == paste0("ATM", i))
+  atm_ts <- xts::xts(atm_sub$Cash, order.by=atm_sub$DATE)
+  acf(na.omit(atm_ts), ylab=paste0("ACF ATM", i), main="") 
+  pacf(na.omit(atm_ts), ylab=paste0("PACF ATM", i), main="")
+}
+```
+
+Observations:
+
+* ACF and PACF plots for ATM1, ATM2, and ATM3 show autocorrelation between each observation and its immediate predecessor and autocorrelation between the current observation and other individual lagged observations. The ACF and PACF plots for ATM3 however, are not reliable due to the death of observations.
+
+## Clean The Data
+
+Data are cleaned using forecast::tsclean() and then converted to a time series object using the ts() function. The tsclean() function imputes nulls and removes outliers. The ts()function converts data to a time series object which is compatible with the forecast package.
+
+```{r}
+for(i in 1:length(levels(atm$ATM))) {
+  atm_num <- paste0("ATM", i)
+  atm_sub <- subset(atm, ATM == atm_num, select=-2)
+  atm_sub$Cash <- forecast::tsclean(atm_sub$Cash, replace.missing=T)
+  assign(atm_num, ts(atm_sub$Cash, frequency = 7, start=start(atm_sub$DATE)))
+}
+```
+
+## Trend Examine
+
+A moving average smoother is helpful in examining what kind of trend is involved in a series. Moving average models should not be confused with moving average smoothing. A moving average model is used for forecasting future values while moving average smoothing is used for estimating the trend-cycle component of past values. The ma() function computes a simple moving average smoother of a given time series.
+
+```{r}
+par(mfrow=c(3, 1), mar = c(0, 4, 0, 0), oma = c(0, 0, 0.5, 0.5))
+plot(ATM1, col=8, xaxt = "n", ylab="ATM1")
+lines(forecast::ma(ATM1, order=7), col=2)  # weekly
+lines(forecast::ma(ATM1, order=30), col=4) # monthly
+plot(ATM2, col=8, xaxt = "n", ylab="ATM3")
+lines(forecast::ma(ATM2, order=7), col=2)  # weekly
+lines(forecast::ma(ATM2, order=30), col=4) # monthly
+plot(ATM4, col=8, xaxt = "n", ylab="ATM4")
+lines(forecast::ma(ATM4, order=7), col=2)  # weekly
+lines(forecast::ma(ATM4, order=30), col=4) # monthly
+```
+
+Observations:
+
+* The 7-day (weekly) and 30-day (monthly) moving average smoother line shows that the data for the ATMs have no apparent trend.
+
+## Data Decomposition Plot
+
+Decomposition Plot decomposes and plots the observed values, the underlying trend, seasonality, and randomness of the time series data.
+
+```{r}
+plot(decompose(ATM1), col=3)
+```
+
+```{r}
+plot(decompose(ATM2), col=3)
+```
+
+```{r}
+plot(decompose(ATM4), col=3)
+```
+
+Observations:
+
+* Plotting the trend-cycle and seasonal indices computed by additive decomposition shows that the data have no apparent trend, seasonal fluctuations, and fairly random residuals.
+
+## Stationarity Test
+
+### Dickey-Fuller Test
+
+An augmented Dickey-Fuller unit root test evaluates if the data exhibit a Stationarity process with deterministic trend or a Stationarity process with stochastic trend.
+
+```{r}
+tseries::adf.test(ATM1)
+tseries::adf.test(ATM2)
+tseries::adf.test(ATM4)
+```
+
+The augmented Dickey-Fuller unit root test p-values are below α=0.05. Therefore, the null hypothesis that the data has unit roots is rejected. The data exhibit stochastic trend which suggests using regression (AR) in lieu of differencing. Autoregressive (AR) modeling acts like partial differencing when ϕ<1. When ϕ=1 the AR(1) model is like a first-order difference.
+
+## Model Data
+
+The **train** and **test** sets are created by referencing rows by index.
+
+```{r}
+# train/test split
+index_train <- 1:(length(ATM1) - 30)
+ATM1_train <- ts(ATM1[index_train], frequency=7)
+ATM1_test <- ts(ATM1[-index_train], frequency=7)
+index_train <- 1:(length(ATM2) - 30)
+ATM2_train <- ts(ATM2[index_train], frequency=7)
+ATM2_test <- ts(ATM2[-index_train], frequency=7)
+index_train <- 1:(length(ATM3) - 30)
+ATM3_train <- ts(ATM3[index_train], frequency=7)
+ATM3_test <- ts(ATM3[-index_train], frequency=7)
+index_train <- 1:(length(ATM4) - 30)
+ATM4_train <- ts(ATM4[index_train], frequency=7)
+ATM4_test <- ts(ATM4[-index_train], frequency=7)
+```
+
+The indexed rows for the test set are a window at the end of the times series. The window sized for the testing set is that of the desired prediction. The training set window is comprised of the indexes which are the complement of the test set indexes.
+
+## Transformation
+
+The Augmented Dickey-Fuller Test results support not differencing. Data can be seasonally adjusted for modeling and then reseasonalized for predictions. The modeling algorithm being used evaluates seasonal components and produces predictions that reflect the seasonality in the underlying data. Therefore, the data need not be seasonally adjusted.Heteroskedasticity refers to the circumstance in which the variability of a variable is unequal across the range of values of a second variable. Box-Cox transformations can help to stabilize the variance of a time series. 
+
+```{r}
+(lambda1 <- forecast::BoxCox.lambda(ATM1_train))
+(lambda2 <- forecast::BoxCox.lambda(ATM2_train))
+(lambda4 <- forecast::BoxCox.lambda(ATM4_train))
+```
+
+The Box-Cox transformation parameters suggested are around λ=0.5. This rounded (more interpretable) value is suggestive of a 1/yt‾‾√ transformation. These Box-Cox transformations stabilize the variance and make each series relatively homoskedastic with equal variance.
+
+## ARIMA Model
+
+The auto.arima() function chooses an ARIMA model automatically. It uses a variation of the Hyndman and Khandakar algorithm which combines unit root tests, minimization of the AICc, and MLE to obtain an ARIMA model. The function takes some short-cuts in order to speed up the computation and will not always yield the best model. Setting stepwise and approximation to FALSE prevents the function from taking short-cuts.
+
+```{r}
+(fit1 <- forecast::auto.arima(ATM1_train, stepwise=F, approximation=F, d=0, lambda=lambda1))
+```
+
+```{r}
+(fit2 <- forecast::auto.arima(ATM2_train, stepwise=F, approximation=F, d=0, lambda=lambda2))
+```
+
+```{r}
+(fit4 <- forecast::auto.arima(ATM4_train, stepwise=F, approximation=F, d=0, lambda=lambda4))
+```
+
+## Evaluate
+
+ACF and PACF
+
+ACF plot shows the autocorrelations between each observation and its immediate predecessor (lagged observation). The PACF plot shows the autocorrelations between the current observation and each individual lagged observation.
+
+```{r}
+par(mfrow=c(3, 2), mar = c(3, 5, 0, 0), oma = c(0, 0, 0.5, 0.5))
+acf(residuals(fit1), ylab="ACF ATM1"); pacf(residuals(fit1), ylab="PACF ATM1")
+acf(residuals(fit2), ylab="ACF ATM2"); pacf(residuals(fit2), ylab="PACF ATM2")
+acf(residuals(fit4), ylab="ACF ATM4"); pacf(residuals(fit4), ylab="PACF ATM4")
+```
+
+Observations:
+
+* The residuals of the models appear to display the characteristics of White Noise in the ACF and PACF plots with only one of the twenty residuals (or 0.05%) being significant. At a 95% confidence interval this is within probabilistic expectations.
+
+## Box-Ljung Test
+
+The Box-Ljung test is helpful in assessing if data follow a White Noise pattern. The arma attribute of the fitted model returns a vector containing the ARIMA model parameters p,q,P,Q,period,d,and D; in that order.
+
+```{r}
+Box.test(residuals(fit1), lag=7, fitdf=sum(fit1$arma[1:2]), type="Ljung-Box")
+```
+
+```{r}
+Box.test(residuals(fit2), lag=7, fitdf=sum(fit1$arma[1:2]), type="Ljung-Box")
+```
+
+```{r}
+Box.test(residuals(fit4), lag=7, fitdf=sum(fit1$arma[1:2]), type="Ljung-Box")
+```
+
+The null hypothesis of independence is not rejected. The Box-Ljung shows that the autocorrelations of the residuals from the models are not significantly different from zero at α=0.05. The residuals of the models display the characteristics of White Noise. The models pass the required checks and are therefore suitable for forecasting.
+
+## Forecasting
+
+ATM3 was not modeled due to its degenerative properties. To forecast values for ATM3, the model for an ATM with a similar mean will be used.
+
+```{r}
+c(mean(ATM1), mean(ATM2), mean(ATM3[ATM3!=0]), mean(ATM4))
+```
+
+The mean of ATM1 is very close to the mean of the few values in ATM3. Therefore, the ARIMA(0,0,1)(2,0,0)7 ARIMA model for ATM1 will be used to make predictions for ATM3.
+
+```{r}
+fit3 <- forecast::Arima(ATM3_train, model=fit1)
+```
+
+Forecasts are done using the forecast::forecast() function. Since the data were not seasonally adjusted, they need not be reseasonalized prior to forecast. Prediction point estimates are represented by a blue line, prediction intervals are represented by blue bands, and actual values are represented by a red line.
+
+```{r}
+fcast1 <- forecast::forecast(fit1, h=30)
+fcast2 <- forecast::forecast(fit2, h=30)
+fcast3 <- forecast::forecast(fit3, h=30)
+fcast4 <- forecast::forecast(fit4, h=30)
+par(mfrow=c(4, 1), mar = c(0, 4, 0, 0), oma = c(4, 4, 2, 0.5))
+plot(fcast1, ylab="Cash ATM1", main="", xaxt="n"); 
+lines(lag(ATM1_test, -length(ATM1_train)), col="red")
+plot(fcast2, ylab="Cash ATM2", main="", xaxt="n"); 
+lines(lag(ATM2_test, -length(ATM2_train)), col="red")
+plot(fcast3, ylab="Cash ATM3", main="", xaxt="n")
+lines(lag(ATM3_test, -length(ATM3_train)), col="red")
+plot(fcast4, ylab="Cash ATM4", main="", xaxt="n")
+lines(lag(ATM4_test, -length(ATM4_train)), col="red")
+title("ATM Predictions", outer=TRUE)
+```
+
+Observations:
+
+* The predictions appear to produce a useful forecasts that reflect patterns in the original data.
+
+## Model Accuracy
+
+The accuracy() function is helpful for obtaining summary measures of the forecast accuracy: Mean Error (ME), Root Mean Squared Error (RMSE), Mean Absolute Error (MAE), Mean Percentage Error (MPE), Mean Absolute Percentage Error (MAPE), Mean Absolute Scaled Error (MASE), and Autocorrelation of errors at lag 1 (ACF1).
+
+```{r}
+round(forecast::accuracy(fcast1, length(ATM1_test)), 3)
+```
+
+```{r}
+round(forecast::accuracy(fcast2, length(ATM2_test)), 3)
+```
+
+```{r}
+round(forecast::accuracy(fcast4, length(ATM4_test)), 3)
+```
+
+These accuracy for the predications vary. ATM1 and ATM2 predictions are more accurate than ATM4 predictions. The closer the original data are to being White Noise, the less accurate the predictions.
