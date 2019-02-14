@@ -1,6 +1,6 @@
 # Data_Analysis
-Data Science Projects using R and Python
+Data Science Projects using Python and R
 
 This repository is a place to share my code and notebooks of numerous data science projects.
 
-Many of these projects are hosted on my personal website [2series](https://2series.github.io/)
+Personal website [2series](https://2series.github.io/)
