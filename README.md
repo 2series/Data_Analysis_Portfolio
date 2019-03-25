@@ -1,6 +1,6 @@
 # Data_Analysis
 
-<img src=“images/im.png" width="300" >
+![](images/im.png)
 
 Data Science Projects using Python and R
 
