@@ -1,0 +1,513 @@
+---
+title: "Predict Popular Songs"
+author: "Rihad Variawa"
+date: "2019-04-07"
+output: html_document
+tags:
+  - regression
+summary: 'Predict whether a song will reach a spot in the Top 10, of the Billboard Hot 100 Chart'
+header:
+  image: 'headers/muc.jpg'
+---
+
+
+
+<p>Popularity of music records</p>
+<p>The music industry has a well-developed market with a global annual revenue around $15 billion. The recording industry is highly competitive and is dominated by three big production companies which make up nearly 82% of the total annual album sales.</p>
+<p>Artists are at the core of the music industry and record labels provide them with the necessary resources to sell their music on a large scale. A record label incurs numerous costs (studio recording, marketing, distribution, and touring) in exchange for a percentage of the profits from album sales, singles and concert tickets.</p>
+<p>Unfortunately, the success of an artist’s release is highly uncertain: a single may be extremely popular, resulting in widespread radio play and digital downloads, while another single may turn out quite unpopular, and therefore unprofitable.</p>
+<p>Knowing the competitive nature of the recording industry, record labels face the fundamental decision problem of which musical releases to support to maximize their financial success.</p>
+<p>How can we use analytics to predict the popularity of a song? In this project, we challenge ourselves to predict whether a song will reach a spot in the Top 10 of the Billboard Hot 100 Chart.</p>
+<p>Taking an analytics approach, we aim to use information about a song’s properties to predict its popularity. The dataset songs.csv consists of all songs which made it to the Top 10 of the Billboard Hot 100 Chart from 1990-2010 plus a sample of additional songs that didn’t make the Top 10. This data comes from three sources: Wikipedia, Billboard.com, and EchoNest.</p>
+<p>The variables included in the dataset either describe the artist or the song, or they are associated with the following song attributes: time signature, loudness, key, pitch, tempo, and timbre.</p>
+<p>Here’s a detailed description of the variables:</p>
+<ul>
+<li>year = the year the song was released</li>
+<li>songtitle = the title of the song</li>
+<li>artistname = the name of the artist of the song</li>
+<li>songID and artistID = identifying variables for the song and artist</li>
+<li>timesignature and timesignature_confidence = a variable estimating the time signature of the song, and the confidence in the estimate</li>
+<li>loudness = a continuous variable indicating the average amplitude of the audio in decibels</li>
+<li>tempo and tempo_confidence = a variable indicating the estimated beats per minute of the song, and the confidence in the estimate</li>
+<li>key and key_confidence = a variable with twelve levels indicating the estimated key of the song (C, C#, . . ., B), and the confidence in the estimate</li>
+<li>energy = a variable that represents the overall acoustic energy of the song, using a mix of features such as loudness</li>
+<li>pitch = a continuous variable that indicates the pitch of the song
+timbre_0_min, timbre_0_max, timbre_1_min, timbre_1_max, . . . , timbre_11_min, and timbre_11_max = variables that indicate the minimum/maximum values over all segments for each of the twelve values in the timbre vector (resulting in 24 continuous variables)</li>
+<li>Top10 = a binary variable indicating whether or not the song made it to the Top 10 of the Billboard Hot 100 Chart (1 if it was in the top 10, and 0 if it was not)</li>
+</ul>
+<div id="problem-1.1---understanding-the-data" class="section level3">
+<h3>Problem 1.1 - Understanding the Data</h3>
+<p>Use the read.csv function to load the dataset “songs.csv” into R. How many observations (songs) are from the year 2010?</p>
+<pre class="r"><code>songs &lt;- read.csv(&quot;songs.csv&quot;)
+str(songs)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    7574 obs. of  39 variables:
+##  $ year                    : int  2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 ...
+##  $ songtitle               : Factor w/ 7141 levels &quot;̈́ l&#39;or_e des bois&quot;,..: 6204 5522 241 3115 48 608 255 4419 2886 6756 ...
+##  $ artistname              : Factor w/ 1032 levels &quot;50 Cent&quot;,&quot;98 Degrees&quot;,..: 3 3 3 3 3 3 3 3 3 12 ...
+##  $ songID                  : Factor w/ 7549 levels &quot;SOAACNI1315CD4AC42&quot;,..: 595 5439 5252 1716 3431 1020 1831 3964 6904 2473 ...
+##  $ artistID                : Factor w/ 1047 levels &quot;AR00B1I1187FB433EB&quot;,..: 671 671 671 671 671 671 671 671 671 507 ...
+##  $ timesignature           : int  3 4 4 4 4 4 4 4 4 4 ...
+##  $ timesignature_confidence: num  0.853 1 1 1 0.788 1 0.968 0.861 0.622 0.938 ...
+##  $ loudness                : num  -4.26 -4.05 -3.57 -3.81 -4.71 ...
+##  $ tempo                   : num  91.5 140 160.5 97.5 140.1 ...
+##  $ tempo_confidence        : num  0.953 0.921 0.489 0.794 0.286 0.347 0.273 0.83 0.018 0.929 ...
+##  $ key                     : int  11 10 2 1 6 4 10 5 9 11 ...
+##  $ key_confidence          : num  0.453 0.469 0.209 0.632 0.483 0.627 0.715 0.423 0.751 0.602 ...
+##  $ energy                  : num  0.967 0.985 0.99 0.939 0.988 ...
+##  $ pitch                   : num  0.024 0.025 0.026 0.013 0.063 0.038 0.026 0.033 0.027 0.004 ...
+##  $ timbre_0_min            : num  0.002 0 0.003 0 0 ...
+##  $ timbre_0_max            : num  57.3 57.4 57.4 57.8 56.9 ...
+##  $ timbre_1_min            : num  -6.5 -37.4 -17.2 -32.1 -223.9 ...
+##  $ timbre_1_max            : num  171 171 171 221 171 ...
+##  $ timbre_2_min            : num  -81.7 -149.6 -72.9 -138.6 -147.2 ...
+##  $ timbre_2_max            : num  95.1 180.3 157.9 173.4 166 ...
+##  $ timbre_3_min            : num  -285 -380.1 -204 -73.5 -128.1 ...
+##  $ timbre_3_max            : num  259 384 251 373 389 ...
+##  $ timbre_4_min            : num  -40.4 -48.7 -66 -55.6 -43.9 ...
+##  $ timbre_4_max            : num  73.6 100.4 152.1 119.2 99.3 ...
+##  $ timbre_5_min            : num  -104.7 -87.3 -98.7 -77.5 -96.1 ...
+##  $ timbre_5_max            : num  183.1 42.8 141.4 141.2 38.3 ...
+##  $ timbre_6_min            : num  -88.8 -86.9 -88.9 -70.8 -110.8 ...
+##  $ timbre_6_max            : num  73.5 75.5 66.5 64.5 72.4 ...
+##  $ timbre_7_min            : num  -71.1 -65.8 -67.4 -63.7 -55.9 ...
+##  $ timbre_7_max            : num  82.5 106.9 80.6 96.7 110.3 ...
+##  $ timbre_8_min            : num  -52 -61.3 -59.8 -78.7 -56.5 ...
+##  $ timbre_8_max            : num  39.1 35.4 46 41.1 37.6 ...
+##  $ timbre_9_min            : num  -35.4 -81.9 -46.3 -49.2 -48.6 ...
+##  $ timbre_9_max            : num  71.6 74.6 59.9 95.4 67.6 ...
+##  $ timbre_10_min           : num  -126.4 -103.8 -108.3 -102.7 -52.8 ...
+##  $ timbre_10_max           : num  18.7 121.9 33.3 46.4 22.9 ...
+##  $ timbre_11_min           : num  -44.8 -38.9 -43.7 -59.4 -50.4 ...
+##  $ timbre_11_max           : num  26 22.5 25.7 37.1 32.8 ...
+##  $ Top10                   : int  0 0 0 0 0 0 0 0 0 1 ...</code></pre>
+<pre class="r"><code>summary(songs)</code></pre>
+<pre><code>##       year          songtitle              artistname  
+##  Min.   :1990   Intro    :  15   Various artists: 162  
+##  1st Qu.:1997   Forever  :   8   Anal Cunt      :  49  
+##  Median :2002   Home     :   7   Various Artists:  44  
+##  Mean   :2001   Goodbye  :   6   Tori Amos      :  41  
+##  3rd Qu.:2006   Again    :   5   Eels           :  37  
+##  Max.   :2010   Beautiful:   5   Napalm Death   :  37  
+##                 (Other)  :7528   (Other)        :7204  
+##                 songID                   artistID    timesignature  
+##  SOALSZJ1370F1A7C75:   2   ARAGWS81187FB3F768: 222   Min.   :0.000  
+##  SOANPAC13936E0B640:   2   ARL14X91187FB4CF14:  49   1st Qu.:4.000  
+##  SOBDGMX12B0B80808E:   2   AR4KS8C1187FB4CF3D:  41   Median :4.000  
+##  SOBUDCZ12A58A80013:   2   AR0JZZ01187B9B2C99:  37   Mean   :3.894  
+##  SODFRLK13134387FB5:   2   ARZGTK71187B9AC7F5:  37   3rd Qu.:4.000  
+##  SOEJPOK12A6D4FAFE4:   2   AR95XYH1187FB53951:  31   Max.   :7.000  
+##  (Other)           :7562   (Other)           :7157                  
+##  timesignature_confidence    loudness           tempo       
+##  Min.   :0.0000           Min.   :-42.451   Min.   :  0.00  
+##  1st Qu.:0.8193           1st Qu.:-10.847   1st Qu.: 88.86  
+##  Median :0.9790           Median : -7.649   Median :103.27  
+##  Mean   :0.8533           Mean   : -8.817   Mean   :107.35  
+##  3rd Qu.:1.0000           3rd Qu.: -5.640   3rd Qu.:124.80  
+##  Max.   :1.0000           Max.   :  1.305   Max.   :244.31  
+##                                                             
+##  tempo_confidence      key         key_confidence       energy       
+##  Min.   :0.0000   Min.   : 0.000   Min.   :0.0000   Min.   :0.00002  
+##  1st Qu.:0.3720   1st Qu.: 2.000   1st Qu.:0.2040   1st Qu.:0.50014  
+##  Median :0.7015   Median : 6.000   Median :0.4515   Median :0.71816  
+##  Mean   :0.6229   Mean   : 5.385   Mean   :0.4338   Mean   :0.67547  
+##  3rd Qu.:0.8920   3rd Qu.: 9.000   3rd Qu.:0.6460   3rd Qu.:0.88740  
+##  Max.   :1.0000   Max.   :11.000   Max.   :1.0000   Max.   :0.99849  
+##                                                                      
+##      pitch          timbre_0_min     timbre_0_max    timbre_1_min    
+##  Min.   :0.00000   Min.   : 0.000   Min.   :12.58   Min.   :-333.72  
+##  1st Qu.:0.00300   1st Qu.: 0.000   1st Qu.:53.12   1st Qu.:-160.12  
+##  Median :0.00700   Median : 0.027   Median :55.53   Median :-107.75  
+##  Mean   :0.01082   Mean   : 4.123   Mean   :54.46   Mean   :-110.79  
+##  3rd Qu.:0.01400   3rd Qu.: 2.772   3rd Qu.:57.08   3rd Qu.: -59.71  
+##  Max.   :0.54100   Max.   :48.353   Max.   :64.01   Max.   : 123.73  
+##                                                                      
+##   timbre_1_max     timbre_2_min      timbre_2_max      timbre_3_min    
+##  Min.   :-74.37   Min.   :-324.86   Min.   : -0.832   Min.   :-495.36  
+##  1st Qu.:171.13   1st Qu.:-167.64   1st Qu.:100.519   1st Qu.:-226.87  
+##  Median :194.40   Median :-136.60   Median :129.908   Median :-170.61  
+##  Mean   :212.34   Mean   :-136.89   Mean   :136.673   Mean   :-186.11  
+##  3rd Qu.:239.24   3rd Qu.:-106.51   3rd Qu.:166.121   3rd Qu.:-131.56  
+##  Max.   :549.97   Max.   :  34.57   Max.   :397.095   Max.   : -21.55  
+##                                                                        
+##   timbre_3_max     timbre_4_min      timbre_4_max      timbre_5_min    
+##  Min.   : 12.85   Min.   :-207.07   Min.   : -0.651   Min.   :-262.48  
+##  1st Qu.:127.14   1st Qu.: -77.69   1st Qu.: 83.966   1st Qu.:-113.58  
+##  Median :189.50   Median : -63.83   Median :107.422   Median : -95.47  
+##  Mean   :211.81   Mean   : -65.28   Mean   :108.227   Mean   :-104.00  
+##  3rd Qu.:290.72   3rd Qu.: -51.34   3rd Qu.:130.286   3rd Qu.: -81.02  
+##  Max.   :499.62   Max.   :  51.43   Max.   :257.801   Max.   : -42.17  
+##                                                                        
+##   timbre_5_max     timbre_6_min       timbre_6_max     timbre_7_min     
+##  Min.   :-22.41   Min.   :-152.170   Min.   : 12.70   Min.   :-214.791  
+##  1st Qu.: 84.64   1st Qu.: -94.792   1st Qu.: 59.04   1st Qu.:-101.171  
+##  Median :119.90   Median : -80.418   Median : 70.47   Median : -81.797  
+##  Mean   :127.04   Mean   : -80.944   Mean   : 72.17   Mean   : -84.313  
+##  3rd Qu.:162.34   3rd Qu.: -66.521   3rd Qu.: 83.19   3rd Qu.: -64.301  
+##  Max.   :350.94   Max.   :   4.503   Max.   :208.39   Max.   :   5.153  
+##                                                                         
+##   timbre_7_max     timbre_8_min       timbre_8_max     timbre_9_min    
+##  Min.   : 15.70   Min.   :-158.756   Min.   :-25.95   Min.   :-149.51  
+##  1st Qu.: 76.50   1st Qu.: -73.051   1st Qu.: 40.58   1st Qu.: -70.28  
+##  Median : 94.63   Median : -62.661   Median : 49.22   Median : -58.65  
+##  Mean   : 95.65   Mean   : -63.704   Mean   : 50.06   Mean   : -59.52  
+##  3rd Qu.:112.71   3rd Qu.: -52.983   3rd Qu.: 58.46   3rd Qu.: -47.70  
+##  Max.   :214.82   Max.   :  -2.382   Max.   :144.99   Max.   :   1.14  
+##                                                                        
+##   timbre_9_max     timbre_10_min     timbre_10_max     timbre_11_min     
+##  Min.   :  8.415   Min.   :-208.82   Min.   : -6.359   Min.   :-145.599  
+##  1st Qu.: 53.037   1st Qu.:-105.13   1st Qu.: 39.196   1st Qu.: -58.058  
+##  Median : 65.935   Median : -83.07   Median : 50.895   Median : -50.892  
+##  Mean   : 68.028   Mean   : -87.34   Mean   : 55.521   Mean   : -50.868  
+##  3rd Qu.: 81.267   3rd Qu.: -64.52   3rd Qu.: 66.593   3rd Qu.: -43.292  
+##  Max.   :161.518   Max.   : -10.64   Max.   :192.417   Max.   :  -6.497  
+##                                                                          
+##  timbre_11_max        Top10       
+##  Min.   :  7.20   Min.   :0.0000  
+##  1st Qu.: 38.98   1st Qu.:0.0000  
+##  Median : 46.44   Median :0.0000  
+##  Mean   : 47.49   Mean   :0.1477  
+##  3rd Qu.: 55.03   3rd Qu.:0.0000  
+##  Max.   :110.27   Max.   :1.0000  
+## </code></pre>
+<pre class="r"><code>table(songs$year)</code></pre>
+<pre><code>## 
+## 1990 1991 1992 1993 1994 1995 1996 1997 1998 1999 2000 2001 2002 2003 2004 
+##  328  196  186  324  198  258  178  329  380  357  363  282  518  434  479 
+## 2005 2006 2007 2008 2009 2010 
+##  392  479  622  415  483  373</code></pre>
+<p>373</p>
+</div>
+<div id="problem-1.2---understanding-the-data" class="section level3">
+<h3>Problem 1.2 - Understanding the Data</h3>
+<p>How many songs does the dataset include for which the artist name is “Michael Jackson”?</p>
+<pre class="r"><code>nrow(subset(songs, artistname == &quot;Michael Jackson&quot;))</code></pre>
+<pre><code>## [1] 18</code></pre>
+</div>
+<div id="problem-1.3---understanding-the-data" class="section level3">
+<h3>Problem 1.3 - Understanding the Data</h3>
+<p>Which of these songs by Michael Jackson made it to the Top 10? Select all that apply.</p>
+<pre class="r"><code>subset(songs, 
+       artistname == &quot;Michael Jackson&quot; &amp; Top10 == 1,
+       select = c(artistname, songtitle))</code></pre>
+<pre><code>##           artistname         songtitle
+## 4329 Michael Jackson You Rock My World
+## 6207 Michael Jackson You Are Not Alone
+## 6210 Michael Jackson    Black or White
+## 6218 Michael Jackson Remember the Time
+## 6915 Michael Jackson     In The Closet</code></pre>
+<p>You Rock My World, You Are Not Alone</p>
+</div>
+<div id="problem-1.4---understanding-the-data" class="section level3">
+<h3>Problem 1.4 - Understanding the Data</h3>
+<p>The variable corresponding to the estimated time signature (timesignature) is discrete, meaning that it only takes integer values (0, 1, 2, 3, . . . ). What are the values of this variable that occur in our dataset?</p>
+<pre class="r"><code>summary(songs$timesignature)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##   0.000   4.000   4.000   3.894   4.000   7.000</code></pre>
+<pre class="r"><code>table(songs$timesignature)</code></pre>
+<pre><code>## 
+##    0    1    3    4    5    7 
+##   10  143  503 6787  112   19</code></pre>
+<p>Which timesignature value is the most frequent among songs in our dataset?
+#### 4</p>
+</div>
+<div id="problem-1.5---understanding-the-data" class="section level3">
+<h3>Problem 1.5 - Understanding the Data</h3>
+<p>Out of all of the songs in our dataset, the song with the highest tempo is one of the following songs.</p>
+<p>Which one is it?</p>
+<pre class="r"><code>summary(songs$tempo)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00   88.86  103.27  107.35  124.80  244.31</code></pre>
+<pre class="r"><code>which.max(songs$tempo)</code></pre>
+<pre><code>## [1] 6206</code></pre>
+<pre class="r"><code>songs$tempo[6206]</code></pre>
+<pre><code>## [1] 244.307</code></pre>
+<pre class="r"><code>nrow(subset(songs, tempo == 244.307))</code></pre>
+<pre><code>## [1] 1</code></pre>
+<pre class="r"><code>songs$songtitle[6206]</code></pre>
+<pre><code>## [1] Wanna Be Startin&#39; Somethin&#39;
+## 7141 Levels: ̈́ l&#39;or_e des bois _\x84_ _\x84\x8d ... Zumbi</code></pre>
+<p>Wanna Be Startin’ Somethin’</p>
+</div>
+<div id="problem-2.1---creating-our-prediction-model" class="section level3">
+<h3>Problem 2.1 - Creating Our Prediction Model</h3>
+<p>We wish to predict whether or not a song will make it to the Top 10. To do this, first use the subset function to split the data into a training set “SongsTrain” consisting of all the observations up to and including 2009 song releases, and a testing set “SongsTest”, consisting of the 2010 song releases.</p>
+<p>How many observations (songs) are in the training set?</p>
+<pre class="r"><code>SongsTrain &lt;- subset(songs, year &lt;= 2009)
+SongsTest &lt;- subset(songs, year == 2010)
+nrow(songs)</code></pre>
+<pre><code>## [1] 7574</code></pre>
+<pre class="r"><code>nrow(SongsTrain) + nrow(SongsTest)</code></pre>
+<pre><code>## [1] 7574</code></pre>
+</div>
+<div id="problem-2.2---creating-our-prediction-model" class="section level3">
+<h3>Problem 2.2 - Creating our Prediction Model</h3>
+<p>In this problem, our outcome variable is “Top10” - we are trying to predict whether or not a song will make it to the Top 10 of the Billboard Hot 100 Chart.</p>
+<p>Since the outcome variable is binary, we will build a <strong>logistic regression</strong> model. We’ll start by using all song attributes as our independent variables, which we’ll call Model 1. We will only use the variables in our dataset that describe the numerical attributes of the song in our logistic regression model.</p>
+<p>So we won’t use the variables “year”, “songtitle”, “artistname”, “songID” or “artistID”. We have seen in the lecture that, to build the logistic regression model, we would normally explicitly input the formula including all the independent variables in R. However, in this case, this is a tedious amount of work since we have a large number of independent variables. There is a nice trick to avoid doing so. Let’s suppose that, except for the outcome variable Top10, all other variables in the training set are inputs to Model 1. Then, we can use the formula SongsLog1 = glm(Top10 ~ ., data=SongsTrain, family=binomial) to build our model. Notice that the “.” is used in place of enumerating all the independent variables. (Also, keep in mind that you can choose to put quotes around binomial, or leave out the quotes. R can understand this argument either way.) However, in our case, we want to exclude some of the variables in our dataset from being used as independent variables (“year”, “songtitle”, “artistname”, “songID”, and “artistID”).</p>
+<p>To do this, we can use the following trick. First define a vector of variable names called nonvars - these are the variables that we won’t use in our model.</p>
+<pre class="r"><code>nonvars = c(&quot;year&quot;, &quot;songtitle&quot;, &quot;artistname&quot;, &quot;songID&quot;, &quot;artistID&quot;)</code></pre>
+<p>To remove these variables from our training and testing sets.</p>
+<pre class="r"><code>SongsTrain = SongsTrain[ , !(names(SongsTrain) %in% nonvars) ]
+SongsTest = SongsTest[ , !(names(SongsTest) %in% nonvars) ]</code></pre>
+<p>Now, use the glm function to build a logistic regression model to predict Top10 using all of the other variables as the independent variables. You should use SongsTrain to build the model.</p>
+<p>Looking at the summary of your model, what is the value of the Akaike Information Criterion (AIC)?</p>
+<pre class="r"><code>SongsLog1 &lt;- glm(Top10 ~ ., data = SongsTrain, family=binomial)
+summary(SongsLog1)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Top10 ~ ., family = binomial, data = SongsTrain)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.9220  -0.5399  -0.3459  -0.1845   3.0770  
+## 
+## Coefficients:
+##                            Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)               1.470e+01  1.806e+00   8.138 4.03e-16 ***
+## timesignature             1.264e-01  8.674e-02   1.457 0.145050    
+## timesignature_confidence  7.450e-01  1.953e-01   3.815 0.000136 ***
+## loudness                  2.999e-01  2.917e-02  10.282  &lt; 2e-16 ***
+## tempo                     3.634e-04  1.691e-03   0.215 0.829889    
+## tempo_confidence          4.732e-01  1.422e-01   3.329 0.000873 ***
+## key                       1.588e-02  1.039e-02   1.529 0.126349    
+## key_confidence            3.087e-01  1.412e-01   2.187 0.028760 *  
+## energy                   -1.502e+00  3.099e-01  -4.847 1.25e-06 ***
+## pitch                    -4.491e+01  6.835e+00  -6.570 5.02e-11 ***
+## timbre_0_min              2.316e-02  4.256e-03   5.441 5.29e-08 ***
+## timbre_0_max             -3.310e-01  2.569e-02 -12.882  &lt; 2e-16 ***
+## timbre_1_min              5.881e-03  7.798e-04   7.542 4.64e-14 ***
+## timbre_1_max             -2.449e-04  7.152e-04  -0.342 0.732087    
+## timbre_2_min             -2.127e-03  1.126e-03  -1.889 0.058843 .  
+## timbre_2_max              6.586e-04  9.066e-04   0.726 0.467571    
+## timbre_3_min              6.920e-04  5.985e-04   1.156 0.247583    
+## timbre_3_max             -2.967e-03  5.815e-04  -5.103 3.34e-07 ***
+## timbre_4_min              1.040e-02  1.985e-03   5.237 1.63e-07 ***
+## timbre_4_max              6.110e-03  1.550e-03   3.942 8.10e-05 ***
+## timbre_5_min             -5.598e-03  1.277e-03  -4.385 1.16e-05 ***
+## timbre_5_max              7.736e-05  7.935e-04   0.097 0.922337    
+## timbre_6_min             -1.686e-02  2.264e-03  -7.445 9.66e-14 ***
+## timbre_6_max              3.668e-03  2.190e-03   1.675 0.093875 .  
+## timbre_7_min             -4.549e-03  1.781e-03  -2.554 0.010661 *  
+## timbre_7_max             -3.774e-03  1.832e-03  -2.060 0.039408 *  
+## timbre_8_min              3.911e-03  2.851e-03   1.372 0.170123    
+## timbre_8_max              4.011e-03  3.003e-03   1.336 0.181620    
+## timbre_9_min              1.367e-03  2.998e-03   0.456 0.648356    
+## timbre_9_max              1.603e-03  2.434e-03   0.659 0.510188    
+## timbre_10_min             4.126e-03  1.839e-03   2.244 0.024852 *  
+## timbre_10_max             5.825e-03  1.769e-03   3.292 0.000995 ***
+## timbre_11_min            -2.625e-02  3.693e-03  -7.108 1.18e-12 ***
+## timbre_11_max             1.967e-02  3.385e-03   5.811 6.21e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 6017.5  on 7200  degrees of freedom
+## Residual deviance: 4759.2  on 7167  degrees of freedom
+## AIC: 4827.2
+## 
+## Number of Fisher Scoring iterations: 6</code></pre>
+<p>AIC: 4827.2</p>
+</div>
+<div id="problem-2.3---creating-our-prediction-model" class="section level3">
+<h3>Problem 2.3 - Creating Our Prediction Model</h3>
+<p>Let’s now think about the variables in our dataset related to the confidence of the time signature, key and tempo (timesignature_confidence, key_confidence, and tempo_confidence). Our model seems to indicate that these confidence variables are significant (rather than the variables timesignature, key and tempo themselves). What does the model suggest?
+#### The higher our confidence about time signature, key and tempo, the more likely the song is to be in the Top 10</p>
+</div>
+<div id="problem-2.4---creating-our-prediction-model" class="section level3">
+<h3>Problem 2.4 - Creating Our Prediction Model</h3>
+<p>In general, if the confidence is low for the time signature, tempo, and key, then the song is more likely to be complex.</p>
+<p>What does Model 1 suggest in terms of complexity?
+#### Mainstream listeners tend to prefer less complex songs</p>
+</div>
+<div id="problem-2.5---creating-our-prediction-model" class="section level3">
+<h3>Problem 2.5 - Creating Our Prediction Model</h3>
+<p>Songs with heavier instrumentation tend to be louder (have higher values in the variable “loudness”) and more energetic (have higher values in the variable “energy”). By inspecting the coefficient of the variable “loudness”, what does Model 1 suggest?
+#### Mainstream listeners prefer songs with heavy instrumentation</p>
+<p>By inspecting the coefficient of the variable “energy”, do we draw the same conclusions as above?
+#### No</p>
+</div>
+<div id="problem-3.1---beware-of-multicollinearity-issues" class="section level3">
+<h3>Problem 3.1 - Beware of Multicollinearity Issues!</h3>
+<p>What is the correlation between the variables “loudness” and “energy” in the training set?</p>
+<pre class="r"><code>cor(SongsTrain$loudness, SongsTrain$energy)</code></pre>
+<pre><code>## [1] 0.7399067</code></pre>
+<p>Given that these two variables are highly correlated, Model 1 suffers from multicollinearity. To avoid this issue, we will omit one of these two variables and re-run the logistic regression.</p>
+<p>In the rest of this problem, we’ll build two variations of our original model: Model 2, in which we keep “energy” and omit “loudness”, and Model 3, in which we keep “loudness” and omit “energy”.</p>
+</div>
+<div id="problem-3.2---beware-of-multicollinearity-issues" class="section level3">
+<h3>Problem 3.2 - Beware of Multicollinearity Issues!</h3>
+<p>Create Model 2, which is Model 1 without the independent variable “loudness”.</p>
+<pre class="r"><code>SongsLog2 = glm(Top10 ~ . - loudness, data=SongsTrain, family=binomial)</code></pre>
+<p>We just subtracted the variable loudness. We couldn’t do this with the variables “songtitle” and “artistname”, because they are not numeric variables, and we might get different values in the test-set that the training set has never seen. But this approach (subtracting the variable from the model formula) will always work when you want to remove numeric variables.</p>
+<p>Look at the summary of SongsLog2, and inspect the coefficient of the variable “energy”. What do you observe?</p>
+<pre class="r"><code>summary(SongsLog2)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Top10 ~ . - loudness, family = binomial, data = SongsTrain)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -2.0983  -0.5607  -0.3602  -0.1902   3.3107  
+## 
+## Coefficients:
+##                            Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)              -2.241e+00  7.465e-01  -3.002 0.002686 ** 
+## timesignature             1.625e-01  8.734e-02   1.860 0.062873 .  
+## timesignature_confidence  6.885e-01  1.924e-01   3.578 0.000346 ***
+## tempo                     5.521e-04  1.665e-03   0.332 0.740226    
+## tempo_confidence          5.497e-01  1.407e-01   3.906 9.40e-05 ***
+## key                       1.740e-02  1.026e-02   1.697 0.089740 .  
+## key_confidence            2.954e-01  1.394e-01   2.118 0.034163 *  
+## energy                    1.813e-01  2.608e-01   0.695 0.486991    
+## pitch                    -5.150e+01  6.857e+00  -7.511 5.87e-14 ***
+## timbre_0_min              2.479e-02  4.240e-03   5.847 5.01e-09 ***
+## timbre_0_max             -1.007e-01  1.178e-02  -8.551  &lt; 2e-16 ***
+## timbre_1_min              7.143e-03  7.710e-04   9.265  &lt; 2e-16 ***
+## timbre_1_max             -7.830e-04  7.064e-04  -1.108 0.267650    
+## timbre_2_min             -1.579e-03  1.109e-03  -1.424 0.154531    
+## timbre_2_max              3.889e-04  8.964e-04   0.434 0.664427    
+## timbre_3_min              6.500e-04  5.949e-04   1.093 0.274524    
+## timbre_3_max             -2.462e-03  5.674e-04  -4.339 1.43e-05 ***
+## timbre_4_min              9.115e-03  1.952e-03   4.670 3.02e-06 ***
+## timbre_4_max              6.306e-03  1.532e-03   4.115 3.87e-05 ***
+## timbre_5_min             -5.641e-03  1.255e-03  -4.495 6.95e-06 ***
+## timbre_5_max              6.937e-04  7.807e-04   0.889 0.374256    
+## timbre_6_min             -1.612e-02  2.235e-03  -7.214 5.45e-13 ***
+## timbre_6_max              3.814e-03  2.157e-03   1.768 0.076982 .  
+## timbre_7_min             -5.102e-03  1.755e-03  -2.907 0.003644 ** 
+## timbre_7_max             -3.158e-03  1.811e-03  -1.744 0.081090 .  
+## timbre_8_min              4.488e-03  2.810e-03   1.597 0.110254    
+## timbre_8_max              6.423e-03  2.950e-03   2.177 0.029497 *  
+## timbre_9_min             -4.282e-04  2.955e-03  -0.145 0.884792    
+## timbre_9_max              3.525e-03  2.377e-03   1.483 0.138017    
+## timbre_10_min             2.993e-03  1.804e-03   1.660 0.097004 .  
+## timbre_10_max             7.367e-03  1.731e-03   4.255 2.09e-05 ***
+## timbre_11_min            -2.837e-02  3.630e-03  -7.815 5.48e-15 ***
+## timbre_11_max             1.829e-02  3.341e-03   5.476 4.34e-08 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 6017.5  on 7200  degrees of freedom
+## Residual deviance: 4871.8  on 7168  degrees of freedom
+## AIC: 4937.8
+## 
+## Number of Fisher Scoring iterations: 6</code></pre>
+<p>Model 2 suggests that songs with high energy levels tend to be more popular. This contradicts our observation in Model 1.</p>
+</div>
+<div id="problem-3.3---beware-of-multicollinearity-issues" class="section level3">
+<h3>Problem 3.3 - Beware of Multicollinearity Issues!</h3>
+<p>Now, create Model 3, which should be exactly like Model 1, but without the variable “energy”.</p>
+<pre class="r"><code>SongsLog3 = glm(Top10 ~ . - energy, data=SongsTrain, family=binomial)</code></pre>
+<p>Look at the summary of Model 3 and inspect the coefficient of the variable “loudness”. Remembering that higher loudness and energy both occur in songs with heavier instrumentation, do we make the same observation about the popularity of heavy instrumentation as we did with Model 2?</p>
+<pre class="r"><code>summary(SongsLog3)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = Top10 ~ . - energy, family = binomial, data = SongsTrain)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.9182  -0.5417  -0.3481  -0.1874   3.4171  
+## 
+## Coefficients:
+##                            Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)               1.196e+01  1.714e+00   6.977 3.01e-12 ***
+## timesignature             1.151e-01  8.726e-02   1.319 0.187183    
+## timesignature_confidence  7.143e-01  1.946e-01   3.670 0.000242 ***
+## loudness                  2.306e-01  2.528e-02   9.120  &lt; 2e-16 ***
+## tempo                    -6.460e-04  1.665e-03  -0.388 0.698107    
+## tempo_confidence          3.841e-01  1.398e-01   2.747 0.006019 ** 
+## key                       1.649e-02  1.035e-02   1.593 0.111056    
+## key_confidence            3.394e-01  1.409e-01   2.409 0.015984 *  
+## pitch                    -5.328e+01  6.733e+00  -7.914 2.49e-15 ***
+## timbre_0_min              2.205e-02  4.239e-03   5.200 1.99e-07 ***
+## timbre_0_max             -3.105e-01  2.537e-02 -12.240  &lt; 2e-16 ***
+## timbre_1_min              5.416e-03  7.643e-04   7.086 1.38e-12 ***
+## timbre_1_max             -5.115e-04  7.110e-04  -0.719 0.471928    
+## timbre_2_min             -2.254e-03  1.120e-03  -2.012 0.044190 *  
+## timbre_2_max              4.119e-04  9.020e-04   0.457 0.647915    
+## timbre_3_min              3.179e-04  5.869e-04   0.542 0.588083    
+## timbre_3_max             -2.964e-03  5.758e-04  -5.147 2.64e-07 ***
+## timbre_4_min              1.105e-02  1.978e-03   5.585 2.34e-08 ***
+## timbre_4_max              6.467e-03  1.541e-03   4.196 2.72e-05 ***
+## timbre_5_min             -5.135e-03  1.269e-03  -4.046 5.21e-05 ***
+## timbre_5_max              2.979e-04  7.855e-04   0.379 0.704526    
+## timbre_6_min             -1.784e-02  2.246e-03  -7.945 1.94e-15 ***
+## timbre_6_max              3.447e-03  2.182e-03   1.580 0.114203    
+## timbre_7_min             -5.128e-03  1.768e-03  -2.900 0.003733 ** 
+## timbre_7_max             -3.394e-03  1.820e-03  -1.865 0.062208 .  
+## timbre_8_min              3.686e-03  2.833e-03   1.301 0.193229    
+## timbre_8_max              4.658e-03  2.988e-03   1.559 0.119022    
+## timbre_9_min             -9.318e-05  2.957e-03  -0.032 0.974859    
+## timbre_9_max              1.342e-03  2.424e-03   0.554 0.579900    
+## timbre_10_min             4.050e-03  1.827e-03   2.217 0.026637 *  
+## timbre_10_max             5.793e-03  1.759e-03   3.294 0.000988 ***
+## timbre_11_min            -2.638e-02  3.683e-03  -7.162 7.96e-13 ***
+## timbre_11_max             1.984e-02  3.365e-03   5.896 3.74e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 6017.5  on 7200  degrees of freedom
+## Residual deviance: 4782.7  on 7168  degrees of freedom
+## AIC: 4848.7
+## 
+## Number of Fisher Scoring iterations: 6</code></pre>
+<p>In the remainder of this problem, we’ll just use Model 3.</p>
+</div>
+<div id="problem-4.1---validating-our-model" class="section level3">
+<h3>Problem 4.1 - Validating Our Model</h3>
+<p>Make predictions on the test-set using Model 3. What is the accuracy of Model 3 on the test-set, using a threshold of 0.45? (Compute the accuracy as a number between 0 and 1.)</p>
+<pre class="r"><code>predSongsTest = predict(SongsLog3, type=&quot;response&quot;, newdata = SongsTest)
+table(SongsTest$Top10, predSongsTest &gt; 0.45)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   309    5
+##   1    40   19</code></pre>
+<pre class="r"><code>(309 + 19) / nrow(SongsTest)</code></pre>
+<pre><code>## [1] 0.8793566</code></pre>
+</div>
+<div id="problem-4.2---validating-our-model" class="section level3">
+<h3>Problem 4.2 - Validating Our Model</h3>
+<p>Let’s check if there’s any incremental benefit in using Model 3 instead of a baseline model. Given the difficulty of guessing which song is going to be a hit, an easier model would be to pick the most frequent outcome (a song is not a Top 10 hit) for all songs.</p>
+<p>What would the accuracy of the baseline model be on the test-set?</p>
+<pre class="r"><code>table(SongsTest$Top10)</code></pre>
+<pre><code>## 
+##   0   1 
+## 314  59</code></pre>
+<pre class="r"><code>314/(314 + 59)</code></pre>
+<pre><code>## [1] 0.8418231</code></pre>
+</div>
+<div id="problem-4.3---validating-our-model" class="section level3">
+<h3>Problem 4.3 - Validating Our Model</h3>
+<p>It seems that Model 3 gives us a small improvement over the baseline model. Still, does it create an edge? Let’s view the two models from an investment perspective. A production company is interested in investing in songs that are highly likely to make it to the Top 10. The company’s objective is to minimize its risk of financial losses attributed to investing in songs that end up unpopular.</p>
+<p>A competitive edge can therefore be achieved if we can provide the production company a list of songs that are highly likely to end up in the Top 10. We note that the baseline model does not prove useful, as it simply does not label any song as a hit. Let us see what our model has to offer.</p>
+<p>How many songs does Model 3 correctly predict as Top 10 hits in 2010 (remember that all songs in 2010 went into our test set), using a threshold of 0.45?</p>
+<pre class="r"><code>table(SongsTest$Top10, predSongsTest &gt; 0.45)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   309    5
+##   1    40   19</code></pre>
+<p>19</p>
+<p>How many non-hit songs does Model 3 predict will be Top 10 hits (again, looking at the test set), using a threshold of 0.45?
+#### 5</p>
+</div>
+<div id="problem-4.4---validating-our-model" class="section level3">
+<h3>Problem 4.4 - Validating Our Model</h3>
+<pre class="r"><code># what is the sensitivity of Model 3 on the test set, using a threshold of 0.45?
+19 / (40 + 19)</code></pre>
+<pre><code>## [1] 0.3220339</code></pre>
+<pre class="r"><code># what is the specificity of Model 3 on the test set, using a threshold of 0.45?
+309 / (309 + 5)</code></pre>
+<pre><code>## [1] 0.9840764</code></pre>
+</div>
+<div id="conclusions" class="section level3">
+<h3>Conclusions</h3>
+<ul>
+<li>Model 3 favors specificity over sensitivity.</li>
+<li>Model 3 provides conservative predictions, and predicts that a song will make it to the Top 10 very rarely. So while it detects less than half of the Top 10 songs, we can be very confident in the songs that it does predict to be Top 10 hits.</li>
+</ul>
+</div>

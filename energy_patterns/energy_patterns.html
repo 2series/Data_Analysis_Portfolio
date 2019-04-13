@@ -1,0 +1,810 @@
+---
+title: "Patterns In Renewable Energy Generation"
+author: "Rihad Variawa"
+date: "2019-04-11"
+output: html_document
+summary: 'Exploring renewable energies'
+header:
+  image: 'headers/ren.jpg'
+---
+
+
+
+<p>The use of coal in the United States peaked in 2005, and since then has decreased by 25%, being replaced by renewable energy sources and more efficient use (Lovins, 2014). As the US pursues a portfolio of more diverse, sustainable and secure energy sources, there are many questions to consider.</p>
+<ol style="list-style-type: decimal">
+<li>What are effective factors in incentivizing states to adopt more environmentally friendly energy generation methods?</li>
+<li>How do these factors vary by state?</li>
+<li>How can we direct resources to different places in the country and ensure that they effectively drive renewable energy sources adoption?</li>
+</ol>
+<p>To derive insights and explore these questions, I’ll take a combination of generation, usage, and greenhouse emission data by state and combine it with macro-economic and political information.</p>
+<p>For this analysis, I’ve gathered data from various sources to include the following information for each state within the U.S. for the years spanning year 2000 to year 2013. The aggregated dataset energy.csv.xz results in a total of 27 variables and 699 observations. Each observation contains one record per state per year. Here’s a detailed description of the variables:</p>
+<ul>
+<li>GenTotal: Annual generation of energy using all types of energy sources (coal, nuclear, hydroelectric, solar, etc.) normalized by the state population at a given year.</li>
+<li>GenTotalRenewable: Annual generation of energy using all renewable energy sources normalized by the state population at a given year.</li>
+<li>GenHydro, GenSolar: Annual generation of energy using each type of energy source as a percent of the total energy generation.</li>
+<li>GenTotalRenewableBinary, GenSolarBinary: 1 if generation from solar or other renewable energy sources increased between a year n and a year n+1. 0 if it did not increase.</li>
+<li>AllSourcesCO2, AllSourcesSO2 and AllSourcesNOx: Annual emissions per state in metric tons, normalized by the respective state population at a given year and caused by all energy generation sources.</li>
+<li>EPriceResidential, EPriceCommercial, EPriceIndustrial, EPriceTransportation, EPriceTotal: Average electricity price per state, per sector (residential, industrial, commercial, etc.)</li>
+<li>ESalesResidential, ESalesCommercial, ESalesIndustrial, ESalesTransportation, ESalesTotal: Annual normalized sales of electricity per state, per sector.</li>
+<li>CumlRegulatory, CumlFinancial: Number of energy-related financial incentives and regulations created by a state per year.</li>
+<li>Demographic data such as annual wages per capita and presidential results (0 if a state voted republican, 1 is democrat).</li>
+</ul>
+<div id="problem-1---total-renewable-energy-generation" class="section level3">
+<h3>Problem 1 - Total Renewable Energy Generation</h3>
+<p>Load energy.csv into a data frame called energy.</p>
+<pre class="r"><code>energy &lt;- read.csv(&quot;energy.csv.xz&quot;)
+str(energy)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    699 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ YEAR                   : int  2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 ...
+##  $ GenTotal               : num  9.81 10.64 10.54 9.79 9.9 ...
+##  $ GenHydro               : num  0.163 0.2 0.213 0.25 0.23 ...
+##  $ GenSolar               : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.163 0.2 0.214 0.25 0.231 ...
+##  $ GenSolarBinary         : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenTotalRenewableBinary: int  1 1 1 0 0 0 1 0 1 1 ...
+##  $ AllSourcesCO2          : num  7.26 7.31 6.94 6.15 7.25 ...
+##  $ AllSourcesSO2          : num  0.0224 0.01193 0.01148 0.00675 0.00659 ...
+##  $ AllSourcesNOx          : num  0.0289 0.0277 0.0294 0.0242 0.0377 ...
+##  $ EPriceResidential      : num  11.4 12.1 12.1 12 12.4 ...
+##  $ EPriceCommercial       : num  9.77 10.29 10.13 10.49 10.99 ...
+##  $ EPriceIndustrial       : num  7.56 7.61 7.65 7.86 8.33 ...
+##  $ EPriceTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EPriceTotal            : num  10.1 10.5 10.5 10.5 11 ...
+##  $ EsalesResidential      : num  0.349 0.347 0.354 0.357 0.356 ...
+##  $ EsalesCommercial       : num  0.421 0.42 0.41 0.444 0.449 ...
+##  $ EsalesIndustrial       : num  0.195 0.198 0.199 0.198 0.195 ...
+##  $ EsalesTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EsalesOther            : num  0.0343 0.0356 0.0379 0 0 ...
+##  $ EsalesTotal            : num  8.46 8.61 8.51 8.59 8.78 ...
+##  $ CumlFinancial          : int  1 1 1 1 1 2 7 7 10 10 ...
+##  $ CumlRegulatory         : int  1 1 1 1 1 1 2 2 2 3 ...
+##  $ Total.salary           : num  17.6 18.7 19.6 20.4 21.4 ...
+##  $ presidential.results   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Import                 : int  0 0 0 0 0 0 0 0 0 0 ...</code></pre>
+<pre class="r"><code>summary(energy)</code></pre>
+<pre><code>##      STATE          YEAR         GenTotal         GenHydro      
+##  AK     : 14   Min.   :2000   Min.   : 4.591   Min.   :0.00000  
+##  AL     : 14   1st Qu.:2003   1st Qu.:10.037   1st Qu.:0.00888  
+##  AR     : 14   Median :2006   Median :14.647   Median :0.02291  
+##  AZ     : 14   Mean   :2006   Mean   :16.956   Mean   :0.09853  
+##  CA     : 14   3rd Qu.:2010   3rd Qu.:18.018   3rd Qu.:0.07041  
+##  CO     : 14   Max.   :2013   Max.   :92.097   Max.   :0.92076  
+##  (Other):615                                                    
+##     GenSolar          GenTotalRenewable GenSolarBinary  
+##  Min.   :-1.300e-08   Min.   :0.00000   Min.   :0.0000  
+##  1st Qu.: 0.000e+00   1st Qu.:0.02027   1st Qu.:0.0000  
+##  Median : 0.000e+00   Median :0.04475   Median :0.0000  
+##  Mean   : 3.344e-04   Mean   :0.12245   Mean   :0.2318  
+##  3rd Qu.: 0.000e+00   3rd Qu.:0.10771   3rd Qu.:0.0000  
+##  Max.   : 2.045e-02   Max.   :0.92076   Max.   :1.0000  
+##                                                         
+##  GenTotalRenewableBinary AllSourcesCO2      AllSourcesSO2    
+##  Min.   :0.0000          Min.   : 0.01059   Min.   :0.00003  
+##  1st Qu.:0.0000          1st Qu.: 4.84645   1st Qu.:0.00925  
+##  Median :1.0000          Median : 8.34005   Median :0.02375  
+##  Mean   :0.5923          Mean   :11.61430   Mean   :0.03687  
+##  3rd Qu.:1.0000          3rd Qu.:12.99889   3rd Qu.:0.04197  
+##  Max.   :1.0000          Max.   :93.96429   Max.   :0.34568  
+##                          NA&#39;s   :50         NA&#39;s   :50       
+##  AllSourcesNOx     EPriceResidential EPriceCommercial EPriceIndustrial
+##  Min.   :0.00067   Min.   : 5.130    Min.   : 4.240   Min.   : 3.010  
+##  1st Qu.:0.00604   1st Qu.: 7.965    1st Qu.: 6.760   1st Qu.: 4.695  
+##  Median :0.01428   Median : 9.490    Median : 8.100   Median : 5.820  
+##  Mean   :0.02058   Mean   :10.424    Mean   : 8.969   Mean   : 6.660  
+##  3rd Qu.:0.02288   3rd Qu.:11.825    3rd Qu.:10.065   3rd Qu.: 7.500  
+##  Max.   :0.35610   Max.   :37.340    Max.   :34.880   Max.   :30.820  
+##  NA&#39;s   :50                                                           
+##  EPriceTransportation  EPriceTotal     EsalesResidential EsalesCommercial
+##  Min.   : 0.000       Min.   : 4.170   Min.   :0.1594    Min.   :0.1690  
+##  1st Qu.: 0.000       1st Qu.: 6.515   1st Qu.:0.3297    1st Qu.:0.2816  
+##  Median : 1.615       Median : 7.860   Median :0.3563    Median :0.3385  
+##  Mean   : 4.131       Mean   : 8.809   Mean   :0.3595    Mean   :0.3411  
+##  3rd Qu.: 7.940       3rd Qu.:10.095   3rd Qu.:0.3926    3rd Qu.:0.3877  
+##  Max.   :15.440       Max.   :34.040   Max.   :0.5287    Max.   :0.5381  
+##  NA&#39;s   :1                                                               
+##  EsalesIndustrial  EsalesTransportation  EsalesOther      EsalesTotal    
+##  Min.   :0.06372   Min.   :0.0000000    Min.   :0.0000   Min.   : 6.745  
+##  1st Qu.:0.21331   1st Qu.:0.0000000    1st Qu.:0.0000   1st Qu.:10.336  
+##  Median :0.29978   Median :0.0000000    Median :0.0092   Median :13.153  
+##  Mean   :0.29232   Mean   :0.0010349    Mean   :0.0170   Mean   :13.145  
+##  3rd Qu.:0.35791   3rd Qu.:0.0002786    3rd Qu.:0.0216   3rd Qu.:15.353  
+##  Max.   :0.59561   Max.   :0.0229279    Max.   :0.1074   Max.   :31.336  
+##                                         NA&#39;s   :449                      
+##  CumlFinancial    CumlRegulatory    Total.salary   presidential.results
+##  Min.   :  0.00   Min.   : 0.000   Min.   :10.65   Min.   :0.0000      
+##  1st Qu.:  2.00   1st Qu.: 3.000   1st Qu.:16.84   1st Qu.:0.0000      
+##  Median :  8.00   Median : 6.000   Median :19.51   Median :0.0000      
+##  Mean   : 17.58   Mean   : 6.838   Mean   :20.01   Mean   :0.4578      
+##  3rd Qu.: 23.50   3rd Qu.:10.000   3rd Qu.:22.83   3rd Qu.:1.0000      
+##  Max.   :154.00   Max.   :42.000   Max.   :33.85   Max.   :1.0000      
+##                                                                        
+##      Import      
+##  Min.   :0.0000  
+##  1st Qu.:0.0000  
+##  Median :0.0000  
+##  Mean   :0.3433  
+##  3rd Qu.:1.0000  
+##  Max.   :1.0000  
+## </code></pre>
+<p><strong>Renewable energy sources are considered to include geothermal, hydroelectric, biomass, solar and wind.</strong></p>
+<p>Which state in the US seems to have the highest total generation of energy from renewable sources (using the variable GenTotalRenewable)?</p>
+<pre class="r"><code>energy[which.max(energy$GenTotalRenewable), ]</code></pre>
+<pre><code>##     STATE YEAR GenTotal  GenHydro GenSolar GenTotalRenewable
+## 169    ID 2000 9.165016 0.9207631        0         0.9207631
+##     GenSolarBinary GenTotalRenewableBinary AllSourcesCO2 AllSourcesSO2
+## 169              0                       0     0.6368657   0.004590802
+##     AllSourcesNOx EPriceResidential EPriceCommercial EPriceIndustrial
+## 169   0.002714775              5.39             4.24             3.11
+##     EPriceTransportation EPriceTotal EsalesResidential EsalesCommercial
+## 169                    0        4.17         0.3068433        0.3095307
+##     EsalesIndustrial EsalesTransportation EsalesOther EsalesTotal
+## 169         0.368208                    0  0.01541804    17.57071
+##     CumlFinancial CumlRegulatory Total.salary presidential.results Import
+## 169             2              2     12.81243                    0      1</code></pre>
+<div id="idaho-id" class="section level4">
+<h4>Idaho (ID)</h4>
+<p>Which year did the above state produce the highest energy generation from renewable resources?
+#### 2000</p>
+</div>
+</div>
+<div id="problem-2---relationship-between-politics-and-greenhouse-emissions" class="section level3">
+<h3>Problem 2 - Relationship Between Politics and Greenhouse Emissions</h3>
+<p>What is the average CO2 emissions from all sources of energy for: Note Using na.rm = TRUE in our calculations!</p>
+<ul>
+<li>states during years in which they voted republican?</li>
+</ul>
+<pre class="r"><code>mean(subset(energy, presidential.results == 0)$AllSourcesCO2, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 16.44296</code></pre>
+<ul>
+<li>states during years in which they voted democrat?</li>
+</ul>
+<pre class="r"><code>mean(subset(energy, presidential.results == 1)$AllSourcesCO2, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 5.783781</code></pre>
+<p>States that voted democrat have on average higher NOx emissions than states that voted republican across all years.</p>
+<p>Is this statement true or false?</p>
+<pre class="r"><code>mean(subset(energy, presidential.results == 0)$AllSourcesNOx, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 0.02985461</code></pre>
+<pre class="r"><code>mean(subset(energy, presidential.results == 1)$AllSourcesNOx, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 0.009377028</code></pre>
+<div id="false" class="section level4">
+<h4>False</h4>
+</div>
+</div>
+<div id="problem-3---relationship-between-greenhouse-emissions-and-energy-sales" class="section level3">
+<h3>Problem 3 - Relationship Between Greenhouse Emissions and Energy Sales</h3>
+<p>What is the correlation between overall CO2 emissions and energy sales made to industrial facilities?</p>
+<p>Note that the variables AllSourcesCO2 and EsalesIndustrial contain NAs. Using the parameter: use=“complete” to handle NAs in this question!</p>
+<pre class="r"><code>cor(energy$AllSourcesCO2, energy$EsalesIndustrial, use = &quot;complete&quot;)</code></pre>
+<pre><code>## [1] 0.5385867</code></pre>
+<p>Choose the correct answers from the following statements:</p>
+<pre class="r"><code>cor(energy$AllSourcesSO2, energy$EsalesIndustrial, use = &quot;complete&quot;)</code></pre>
+<pre><code>## [1] 0.4812317</code></pre>
+<pre class="r"><code>cor(energy$AllSourcesNOx, energy$EsalesResidential, use = &quot;complete&quot;)</code></pre>
+<pre><code>## [1] -0.5038829</code></pre>
+<pre class="r"><code>cor(energy$AllSourcesCO2, energy$EsalesCommercial, use = &quot;complete&quot;)</code></pre>
+<pre><code>## [1] -0.373383</code></pre>
+<div id="overall-so2-emissions-are-likely-higher-with-increased-industrial-energy-sales" class="section level4">
+<h4>Overall SO2 emissions are likely higher with increased industrial energy sales</h4>
+</div>
+</div>
+<div id="problem-4---boxplot-of-energy-prices-per-state" class="section level3">
+<h3>Problem 4 - Boxplot of Energy Prices per State</h3>
+<p>Creating a boxplot of the total energy price (EPriceTotal) by State across the data, and a table summarizing the mean of EPriceTotal by State.</p>
+<pre class="r"><code>priceBoxplot &lt;- ggplot(energy, aes(STATE, EPriceTotal)) 
+priceBoxplot + geom_boxplot()</code></pre>
+<p><img src="/project/energy_patterns/energy_patterns_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>What observations do we make?
+#### - The boxplot shows a clear outlier, the state of Hawaii, with much higher energy price compared to the rest of the U.S.
+#### - When looking at the average energy prices, there seems to be three price tiers ($5-$9, $10-$14, and $20+)</p>
+<p>Which state has the lowest average energy price of all? Using a table to explore this question.</p>
+<pre class="r"><code>sum(is.na(energy$EPriceTotal))</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre class="r"><code>mean(energy$EPriceTotal)</code></pre>
+<pre><code>## [1] 8.809213</code></pre>
+<pre class="r"><code>avgPriceByState &lt;- aggregate(EPriceTotal ~ STATE, energy, mean)
+avgPriceByState[which.min(avgPriceByState$EPriceTotal), ]</code></pre>
+<pre><code>##    STATE EPriceTotal
+## 50    WY        5.51</code></pre>
+<div id="wyoming-wy" class="section level4">
+<h4>Wyoming (WY)</h4>
+<p>Is this state associated with the highest mean total energy generation (GenTotal)?</p>
+<pre class="r"><code>avgGenByState &lt;- aggregate(GenTotal ~ STATE, energy, mean)
+avgGenByState</code></pre>
+<pre><code>##    STATE  GenTotal
+## 1     AK  9.810218
+## 2     AL 30.582000
+## 3     AR 19.090133
+## 4     AZ 17.211604
+## 5     CA  5.576285
+## 6     CO 10.367634
+## 7     CT  9.358409
+## 8     DE  8.256761
+## 9     FL 12.027089
+## 10    GA 13.969187
+## 11    HI  8.623563
+## 12    IA 16.270149
+## 13    ID  8.358471
+## 14    IL 15.193858
+## 15    IN 19.664150
+## 16    KS 16.732968
+## 17    KY 22.399999
+## 18    LA 21.384516
+## 19    MA  6.434295
+## 20    MD  8.352530
+## 21    ME 13.148792
+## 22    MI 11.201083
+## 23    MN 10.199283
+## 24    MO 15.062760
+## 25    MS 16.377409
+## 26    MT 28.942351
+## 27    NC 13.915444
+## 28    ND 49.909462
+## 29    NE 18.470352
+## 30    NH 15.671056
+## 31    NJ  7.108700
+## 32    NM 18.130563
+## 33    NV 14.311625
+## 34    NY  7.197383
+## 35    OH 12.664461
+## 36    OK 18.787146
+## 37    OR 14.537263
+## 38    PA 17.326080
+## 39    RI  6.488628
+## 40    SC 22.476570
+## 41    SD 10.719863
+## 42    TN 14.751132
+## 43    TX 17.020082
+## 44    UT 15.587630
+## 45    VA  9.720367
+## 46    VT 10.177005
+## 47    WA 16.426394
+## 48    WI 11.079302
+## 49    WV 47.417141
+## 50    WY 88.393083</code></pre>
+<pre class="r"><code>avgGenByState[which.max(avgGenByState$GenTotal), ]</code></pre>
+<pre><code>##    STATE GenTotal
+## 50    WY 88.39308</code></pre>
+</div>
+<div id="true" class="section level4">
+<h4>True</h4>
+</div>
+</div>
+<div id="problem-5---prediction-model-for-solar-generation" class="section level3">
+<h3>Problem 5 - Prediction Model for Solar Generation</h3>
+<p>We are interested in predicting whether states are going to increase their solar energy generation over the next year.</p>
+<p>Let’s subset our dataset into a training and a testing set by using the following code:</p>
+<pre class="r"><code>set.seed(144)
+spl &lt;- sample(1 : nrow(energy), size = 0.7 * nrow(energy))
+train &lt;- energy[spl, ]
+test &lt;- energy[-spl, ]</code></pre>
+<p>Let’s create a logistic regression model “mod” using the train set to predict the binary variable GenSolarBinary.</p>
+<p>To do so, consider the following as potential predictive variables: GenHydro, GenSolar, CumlFinancial, CumlRegulatory, Total.salary, Import.</p>
+<pre class="r"><code>mod &lt;- glm(GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+             CumlRegulatory + Total.salary + Import, 
+           data = train, 
+           family = binomial)</code></pre>
+<p>Which variable is most predictive in the model?</p>
+<pre class="r"><code>summary(mod)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+##     CumlRegulatory + Total.salary + Import, family = binomial, 
+##     data = train)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -4.0165  -0.4374  -0.2398  -0.0719   2.6342  
+## 
+## Coefficients:
+##                  Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)    -6.345e+00  9.148e-01  -6.935 4.05e-12 ***
+## GenHydro       -3.652e+00  1.114e+00  -3.279  0.00104 ** 
+## GenSolar        1.076e+03  3.322e+02   3.238  0.00121 ** 
+## CumlFinancial   2.814e-02  9.563e-03   2.943  0.00325 ** 
+## CumlRegulatory  1.996e-01  5.045e-02   3.955 7.65e-05 ***
+## Total.salary    1.393e-01  4.465e-02   3.119  0.00181 ** 
+## Import         -3.142e-01  3.447e-01  -0.912  0.36190    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 528.69  on 488  degrees of freedom
+## Residual deviance: 282.82  on 482  degrees of freedom
+## AIC: 296.82
+## 
+## Number of Fisher Scoring iterations: 7</code></pre>
+<div id="cumlregulatory" class="section level4">
+<h4>CumlRegulatory</h4>
+</div>
+</div>
+<div id="problem-6---performance-on-the-test-set" class="section level3">
+<h3>Problem 6 - Performance on the Test Set</h3>
+<p>Computing the predictions on the test-set. Using a threshold of 0.5, what is the accuracy of our model on the test-set?</p>
+<pre class="r"><code>predTest &lt;- predict(mod, newdata = test, type = &quot;response&quot;)
+table(test$GenSolarBinary, predTest &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   154    7
+##   1    31   18</code></pre>
+<pre class="r"><code>(154 + 18) / nrow(test)</code></pre>
+<pre><code>## [1] 0.8190476</code></pre>
+<p><strong>Cool!</strong></p>
+<p>What is the accuracy for states voting republican?</p>
+<pre class="r"><code>testWithPred &lt;- test
+testWithPred$predTest &lt;- predTest
+str(testWithPred)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    210 obs. of  28 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 1 1 1 1 2 2 2 2 3 3 ...
+##  $ YEAR                   : int  2001 2007 2008 2012 2001 2006 2007 2013 2000 2001 ...
+##  $ GenTotal               : num  10.64 10.03 9.88 9.5 28.08 ...
+##  $ GenHydro               : num  0.1995 0.1893 0.173 0.2267 0.0667 ...
+##  $ GenSolar               : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.1997 0.1909 0.1737 0.2325 0.0668 ...
+##  $ GenSolarBinary         : int  0 0 0 0 0 0 0 1 0 0 ...
+##  $ GenTotalRenewableBinary: int  1 0 1 1 0 0 1 1 0 1 ...
+##  $ AllSourcesCO2          : num  7.31 6.39 6.38 5.89 17.65 ...
+##  $ AllSourcesSO2          : num  0.01193 0.00631 0.00514 0.0037 0.10361 ...
+##  $ AllSourcesNOx          : num  0.0277 0.0253 0.0215 0.0233 0.0384 ...
+##  $ EPriceResidential      : num  12.12 15.18 16.56 17.88 7.01 ...
+##  $ EPriceCommercial       : num  10.29 12.19 13.64 14.93 6.53 ...
+##  $ EPriceIndustrial       : num  7.61 12.63 14.17 16.82 3.79 ...
+##  $ EPriceTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EPriceTotal            : num  10.5 13.3 14.7 16.3 5.6 ...
+##  $ EsalesResidential      : num  0.347 0.334 0.337 0.337 0.35 ...
+##  $ EsalesCommercial       : num  0.42 0.447 0.451 0.448 0.238 ...
+##  $ EsalesIndustrial       : num  0.198 0.219 0.213 0.215 0.403 ...
+##  $ EsalesTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EsalesOther            : num  0.0356 NA NA NA 0.00931 ...
+##  $ EsalesTotal            : num  8.61 9.31 9.23 8.78 17.78 ...
+##  $ CumlFinancial          : int  1 7 10 12 1 8 8 16 0 0 ...
+##  $ CumlRegulatory         : int  1 2 2 4 0 1 1 2 0 1 ...
+##  $ Total.salary           : num  18.7 25.7 27.1 31.2 13.2 ...
+##  $ presidential.results   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Import                 : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ predTest               : num  0.01417 0.0541 0.07459 0.15572 0.00879 ...</code></pre>
+<pre class="r"><code>testWithPredRep &lt;- subset(testWithPred, presidential.results == 0)
+table(testWithPredRep$GenSolarBinary, testWithPredRep$predTest &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    90    0
+##   1    18    2</code></pre>
+<pre class="r"><code>(90 + 2) / nrow(testWithPredRep)</code></pre>
+<pre><code>## [1] 0.8363636</code></pre>
+<p>What is the accuracy for states voting democrat?</p>
+<pre class="r"><code>testWithPredDem &lt;- subset(testWithPred, presidential.results == 1)
+table(testWithPredDem$GenSolarBinary, testWithPredDem$predTest &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    64    7
+##   1    13   16</code></pre>
+<pre class="r"><code>(64 + 16) / nrow(testWithPredDem)</code></pre>
+<pre><code>## [1] 0.8</code></pre>
+</div>
+<div id="problem-7---clustering-of-the-observations" class="section level3">
+<h3>Problem 7 - Clustering of the Observations</h3>
+<p>We can perhaps improve our accuracy if we implement a cluster-the-predict approach. I’m interested in clustering the observations based on information about the regulatory and financial incentives, the elections outcome and the population wealth in each state across the years, in addition to whether the state was an energy importer or not.</p>
+<p>Let’s create a train.limited and test.limited datasets, where we only keep the variables CumlRegulatory, CumlFinancial, presidential.results, Total.salary, and Import.</p>
+<pre class="r"><code>str(train)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    489 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 3 36 37 25 16 32 2 37 4 41 ...
+##  $ YEAR                   : int  2006 2003 2002 2012 2010 2009 2011 2000 2011 2007 ...
+##  $ GenTotal               : num  18.5 17.3 13.4 18.3 16.9 ...
+##  $ GenHydro               : num  0.029722 0.029664 0.73065 0 0.000276 ...
+##  $ GenSolar               : num  0 0 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.030363 0.030562 0.739667 0.000301 0.07246 ...
+##  $ GenSolarBinary         : int  0 0 0 0 0 1 0 0 1 0 ...
+##  $ GenTotalRenewableBinary: int  1 1 0 0 1 1 0 0 0 0 ...
+##  $ AllSourcesCO2          : num  10.28 14.09 2.05 8.13 12.78 ...
+##  $ AllSourcesSO2          : num  0.0291 0.0316 0.004 0.0144 0.0144 ...
+##  $ AllSourcesNOx          : num  0.01358 0.02472 0.00324 0.00786 0.01617 ...
+##  $ EPriceResidential      : num  8.85 7.47 7.12 10.26 10.03 ...
+##  $ EPriceCommercial       : num  6.96 6.38 6.59 9.33 8.25 ...
+##  $ EPriceIndustrial       : num  5.24 4.59 4.72 6.24 6.23 5.72 6.25 3.56 6.55 5.09 ...
+##  $ EPriceTransportation   : num  0 0 6.5 0 0 0 0 6.68 0 0 ...
+##  $ EPriceTotal            : num  6.99 6.35 6.32 8.6 8.35 8.09 9.1 4.89 9.71 6.89 ...
+##  $ EsalesResidential      : num  0.366 0.4 0.388 0.372 0.355 ...
+##  $ EsalesCommercial       : num  0.248 0.336 0.329 0.281 0.382 ...
+##  $ EsalesIndustrial       : num  0.386 0.264 0.272 0.347 0.263 ...
+##  $ EsalesTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EsalesOther            : num  NA 0 0.0111 NA NA ...
+##  $ EsalesTotal            : num  16.6 14.4 12.9 16.2 14.2 ...
+##  $ CumlFinancial          : int  4 1 12 19 3 23 15 5 42 5 ...
+##  $ CumlRegulatory         : int  4 1 9 1 6 8 2 5 21 1 ...
+##  $ Total.salary           : num  15.4 13.4 16.3 15.3 20.8 ...
+##  $ presidential.results   : int  0 0 1 0 0 1 0 1 0 0 ...
+##  $ Import                 : int  0 0 0 0 0 0 0 0 0 1 ...</code></pre>
+<pre class="r"><code>train.limited &lt;- subset(train, select = CumlFinancial:Import)
+str(test)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    210 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 1 1 1 1 2 2 2 2 3 3 ...
+##  $ YEAR                   : int  2001 2007 2008 2012 2001 2006 2007 2013 2000 2001 ...
+##  $ GenTotal               : num  10.64 10.03 9.88 9.5 28.08 ...
+##  $ GenHydro               : num  0.1995 0.1893 0.173 0.2267 0.0667 ...
+##  $ GenSolar               : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.1997 0.1909 0.1737 0.2325 0.0668 ...
+##  $ GenSolarBinary         : int  0 0 0 0 0 0 0 1 0 0 ...
+##  $ GenTotalRenewableBinary: int  1 0 1 1 0 0 1 1 0 1 ...
+##  $ AllSourcesCO2          : num  7.31 6.39 6.38 5.89 17.65 ...
+##  $ AllSourcesSO2          : num  0.01193 0.00631 0.00514 0.0037 0.10361 ...
+##  $ AllSourcesNOx          : num  0.0277 0.0253 0.0215 0.0233 0.0384 ...
+##  $ EPriceResidential      : num  12.12 15.18 16.56 17.88 7.01 ...
+##  $ EPriceCommercial       : num  10.29 12.19 13.64 14.93 6.53 ...
+##  $ EPriceIndustrial       : num  7.61 12.63 14.17 16.82 3.79 ...
+##  $ EPriceTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EPriceTotal            : num  10.5 13.3 14.7 16.3 5.6 ...
+##  $ EsalesResidential      : num  0.347 0.334 0.337 0.337 0.35 ...
+##  $ EsalesCommercial       : num  0.42 0.447 0.451 0.448 0.238 ...
+##  $ EsalesIndustrial       : num  0.198 0.219 0.213 0.215 0.403 ...
+##  $ EsalesTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EsalesOther            : num  0.0356 NA NA NA 0.00931 ...
+##  $ EsalesTotal            : num  8.61 9.31 9.23 8.78 17.78 ...
+##  $ CumlFinancial          : int  1 7 10 12 1 8 8 16 0 0 ...
+##  $ CumlRegulatory         : int  1 2 2 4 0 1 1 2 0 1 ...
+##  $ Total.salary           : num  18.7 25.7 27.1 31.2 13.2 ...
+##  $ presidential.results   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Import                 : int  0 0 0 0 0 0 0 0 0 0 ...</code></pre>
+<pre class="r"><code>test.limited &lt;- subset(test, select = CumlFinancial:Import)</code></pre>
+<p>Using the “preProcess” function on the train.limited set, I can compute the train.norm and test.norm.</p>
+<pre class="r"><code>preprocTrain &lt;- preProcess(train.limited)
+train.norm &lt;- predict(preprocTrain, train.limited)
+preprocTest &lt;- preProcess(test.limited)
+test.norm &lt;- predict(preprocTest, test.limited)</code></pre>
+<p>Why didn’t I include the dependent variable GenSolarBinary in this clustering phase?
+#### - Needing to know the dependent variable value to assign an observation to a cluster defeats the purpose of the cluster-then-predict methodology</p>
+<p>Let’s use kmeans clustering for this problem with a seed of 144, k=2 and keep the maximum number of iterations at 1,000.</p>
+<pre class="r"><code>set.seed(144)
+k &lt;- 2
+trainKMC &lt;- kmeans(train.norm, centers = k, iter.max = 1000)
+set.seed(144)
+testKMC &lt;- kmeans(test.norm, centers = k, iter.max = 1000)</code></pre>
+<p>Using the flexclust package, identifying the clusters and call train1 the subset of train corresponding to the first cluster, and train2 the subset of train corresponding to the second cluster.</p>
+<pre class="r"><code>trainKMC.kcca &lt;- as.kcca(trainKMC, train.norm)
+
+# clusters(trainKMC.kcca)
+trainClusters &lt;- predict(trainKMC.kcca)
+table(trainClusters)</code></pre>
+<pre><code>## trainClusters
+##   1   2 
+## 308 181</code></pre>
+<pre class="r"><code>train1 &lt;- subset(train, trainClusters == 1)
+train2 &lt;- subset(train, trainClusters == 2)
+str(train1)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    308 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 3 36 37 25 16 32 2 37 41 28 ...
+##  $ YEAR                   : int  2006 2003 2002 2012 2010 2009 2011 2000 2007 2009 ...
+##  $ GenTotal               : num  18.5 17.3 13.4 18.3 16.9 ...
+##  $ GenHydro               : num  0.029722 0.029664 0.73065 0 0.000276 ...
+##  $ GenSolar               : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.030363 0.030562 0.739667 0.000301 0.07246 ...
+##  $ GenSolarBinary         : int  0 0 0 0 0 1 0 0 0 0 ...
+##  $ GenTotalRenewableBinary: int  1 1 0 0 1 1 0 0 0 1 ...
+##  $ AllSourcesCO2          : num  10.28 14.09 2.05 8.13 12.78 ...
+##  $ AllSourcesSO2          : num  0.0291 0.0316 0.004 0.0144 0.0144 ...
+##  $ AllSourcesNOx          : num  0.01358 0.02472 0.00324 0.00786 0.01617 ...
+##  $ EPriceResidential      : num  8.85 7.47 7.12 10.26 10.03 ...
+##  $ EPriceCommercial       : num  6.96 6.38 6.59 9.33 8.25 ...
+##  $ EPriceIndustrial       : num  5.24 4.59 4.72 6.24 6.23 5.72 6.25 3.56 5.09 5.25 ...
+##  $ EPriceTransportation   : num  0 0 6.5 0 0 0 0 6.68 0 0 ...
+##  $ EPriceTotal            : num  6.99 6.35 6.32 8.6 8.35 8.09 9.1 4.89 6.89 6.63 ...
+##  $ EsalesResidential      : num  0.366 0.4 0.388 0.372 0.355 ...
+##  $ EsalesCommercial       : num  0.248 0.336 0.329 0.281 0.382 ...
+##  $ EsalesIndustrial       : num  0.386 0.264 0.272 0.347 0.263 ...
+##  $ EsalesTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EsalesOther            : num  NA 0 0.0111 NA NA ...
+##  $ EsalesTotal            : num  16.6 14.4 12.9 16.2 14.2 ...
+##  $ CumlFinancial          : int  4 1 12 19 3 23 15 5 5 8 ...
+##  $ CumlRegulatory         : int  4 1 9 1 6 8 2 5 1 4 ...
+##  $ Total.salary           : num  15.4 13.4 16.3 15.3 20.8 ...
+##  $ presidential.results   : int  0 0 1 0 0 1 0 1 0 0 ...
+##  $ Import                 : int  0 0 0 0 0 0 0 0 1 0 ...</code></pre>
+<pre class="r"><code>str(train2)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    181 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 4 9 8 19 14 8 30 10 48 22 ...
+##  $ YEAR                   : int  2011 2011 2002 2007 2006 2006 2010 2011 2004 2011 ...
+##  $ GenTotal               : num  16.7 11.61 7.46 7.24 15.13 ...
+##  $ GenHydro               : num  0.08485 0.00082 0 0.01694 0.0009 ...
+##  $ GenSolar               : num  0.000771 0.000567 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.08841 0.01191 0 0.04075 0.00531 ...
+##  $ GenSolarBinary         : int  1 1 0 1 0 0 0 1 0 0 ...
+##  $ GenTotalRenewableBinary: int  0 0 0 1 1 1 1 0 0 1 ...
+##  $ AllSourcesCO2          : num  8.27 5.99 7.54 3.96 7.95 ...
+##  $ AllSourcesSO2          : num  0.00459 0.00592 0.03869 0.00787 0.0243 ...
+##  $ AllSourcesNOx          : num  0.00815 0.00434 0.01426 0.00307 0.00962 ...
+##  $ EPriceResidential      : num  11.08 11.51 8.7 16.23 8.42 ...
+##  $ EPriceCommercial       : num  9.5 9.85 7.15 15.2 7.95 ...
+##  $ EPriceIndustrial       : num  6.55 8.55 4.85 13.03 4.69 ...
+##  $ EPriceTransportation   : num  0 8.81 0 9.24 5.59 0 0 7.94 0 8.53 ...
+##  $ EPriceTotal            : num  9.71 10.61 6.91 15.16 7.07 ...
+##  $ EsalesResidential      : num  0.441 0.517 0.335 0.352 0.326 ...
+##  $ EsalesCommercial       : num  0.394 0.408 0.315 0.475 0.355 ...
+##  $ EsalesIndustrial       : num  0.165 0.075 0.345 0.165 0.315 ...
+##  $ EsalesTransportation   : num  0 0.00038 0 0.00705 0.00364 ...
+##  $ EsalesOther            : num  NA NA 0.00498 NA NA ...
+##  $ EsalesTotal            : num  11.58 11.78 14.94 8.79 11.2 ...
+##  $ CumlFinancial          : int  42 59 2 33 6 2 32 39 3 37 ...
+##  $ CumlRegulatory         : int  21 14 4 12 6 7 9 7 7 12 ...
+##  $ Total.salary           : num  22 20.7 21.3 28.9 22.7 ...
+##  $ presidential.results   : int  0 1 1 1 1 1 1 0 1 1 ...
+##  $ Import                 : int  0 1 1 1 0 1 0 1 1 0 ...</code></pre>
+<pre class="r"><code>testKMC.kcca &lt;- as.kcca(testKMC, test.norm)
+# clusters(testKMC.kcca)
+testClusters &lt;- predict(testKMC.kcca)
+table(testClusters)</code></pre>
+<pre><code>## testClusters
+##   1   2 
+## 130  80</code></pre>
+<pre class="r"><code>test1 &lt;- subset(test, testClusters == 1)
+test2 &lt;- subset(test, testClusters == 2)
+str(test1)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    130 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 1 1 1 1 2 2 2 2 3 3 ...
+##  $ YEAR                   : int  2001 2007 2008 2012 2001 2006 2007 2013 2000 2001 ...
+##  $ GenTotal               : num  10.64 10.03 9.88 9.5 28.08 ...
+##  $ GenHydro               : num  0.1995 0.1893 0.173 0.2267 0.0667 ...
+##  $ GenSolar               : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenTotalRenewable      : num  0.1997 0.1909 0.1737 0.2325 0.0668 ...
+##  $ GenSolarBinary         : int  0 0 0 0 0 0 0 1 0 0 ...
+##  $ GenTotalRenewableBinary: int  1 0 1 1 0 0 1 1 0 1 ...
+##  $ AllSourcesCO2          : num  7.31 6.39 6.38 5.89 17.65 ...
+##  $ AllSourcesSO2          : num  0.01193 0.00631 0.00514 0.0037 0.10361 ...
+##  $ AllSourcesNOx          : num  0.0277 0.0253 0.0215 0.0233 0.0384 ...
+##  $ EPriceResidential      : num  12.12 15.18 16.56 17.88 7.01 ...
+##  $ EPriceCommercial       : num  10.29 12.19 13.64 14.93 6.53 ...
+##  $ EPriceIndustrial       : num  7.61 12.63 14.17 16.82 3.79 ...
+##  $ EPriceTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EPriceTotal            : num  10.5 13.3 14.7 16.3 5.6 ...
+##  $ EsalesResidential      : num  0.347 0.334 0.337 0.337 0.35 ...
+##  $ EsalesCommercial       : num  0.42 0.447 0.451 0.448 0.238 ...
+##  $ EsalesIndustrial       : num  0.198 0.219 0.213 0.215 0.403 ...
+##  $ EsalesTransportation   : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ EsalesOther            : num  0.0356 NA NA NA 0.00931 ...
+##  $ EsalesTotal            : num  8.61 9.31 9.23 8.78 17.78 ...
+##  $ CumlFinancial          : int  1 7 10 12 1 8 8 16 0 0 ...
+##  $ CumlRegulatory         : int  1 2 2 4 0 1 1 2 0 1 ...
+##  $ Total.salary           : num  18.7 25.7 27.1 31.2 13.2 ...
+##  $ presidential.results   : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Import                 : int  0 0 0 0 0 0 0 0 0 0 ...</code></pre>
+<pre class="r"><code>str(test2)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    80 obs. of  27 variables:
+##  $ STATE                  : Factor w/ 50 levels &quot;AK&quot;,&quot;AL&quot;,&quot;AR&quot;,..: 4 5 5 6 6 6 7 7 7 7 ...
+##  $ YEAR                   : int  2009 2004 2010 2008 2010 2013 2001 2003 2005 2007 ...
+##  $ GenTotal               : num  17 5.48 5.48 10.84 9.95 ...
+##  $ GenHydro               : num  0.0574 0.1753 0.1638 0.0382 0.0311 ...
+##  $ GenSolar               : num  0.000126 0.002931 0.003769 0.000343 0.000838 ...
+##  $ GenTotalRenewable      : num  0.058 0.2787 0.2711 0.0996 0.1012 ...
+##  $ GenSolarBinary         : int  1 0 1 1 1 1 0 0 0 0 ...
+##  $ GenTotalRenewableBinary: int  1 1 1 1 1 1 0 0 1 1 ...
+##  $ AllSourcesCO2          : num  8.12 1.69 1.49 8.45 7.95 ...
+##  $ AllSourcesSO2          : num  4.99e-03 6.28e-04 6.77e-05 1.11e-02 8.81e-03 ...
+##  $ AllSourcesNOx          : num  0.00935 0.00276 0.00214 0.01272 0.01081 ...
+##  $ EPriceResidential      : num  10.7 12.2 14.8 10.1 11 ...
+##  $ EPriceCommercial       : num  9.35 11.64 13.09 8.57 9.13 ...
+##  $ EPriceIndustrial       : num  6.65 9.27 9.8 6.65 6.9 ...
+##  $ EPriceTransportation   : num  0 6.42 8.27 8.32 9.34 ...
+##  $ EPriceTotal            : num  9.56 11.35 13.01 8.59 9.15 ...
+##  $ EsalesResidential      : num  0.447 0.331 0.338 0.34 0.342 ...
+##  $ EsalesCommercial       : num  0.4 0.472 0.469 0.394 0.37 ...
+##  $ EsalesIndustrial       : num  0.153 0.194 0.191 0.265 0.287 ...
+##  $ EsalesTransportation   : num  0 0.003572 0.003177 0.000932 0.000876 ...
+##  $ EsalesOther            : num  NA 0 NA NA NA ...
+##  $ EsalesTotal            : num  11.15 7.09 6.94 10.58 10.39 ...
+##  $ CumlFinancial          : int  33 17 138 30 58 70 3 3 4 10 ...
+##  $ CumlRegulatory         : int  17 20 28 18 19 20 5 5 7 12 ...
+##  $ Total.salary           : num  21.2 20.8 24 27 26.3 ...
+##  $ presidential.results   : int  0 1 1 1 1 1 1 1 1 1 ...
+##  $ Import                 : int  0 1 1 0 1 1 1 1 0 1 ...</code></pre>
+<p>Select the correct statement(s) below:</p>
+<pre class="r"><code>table(train1$presidential.results)</code></pre>
+<pre><code>## 
+##   0   1 
+## 248  60</code></pre>
+<pre class="r"><code>table(train2$presidential.results)</code></pre>
+<pre><code>## 
+##   0   1 
+##  21 160</code></pre>
+<pre class="r"><code>mean(train1$CumlFinancial)</code></pre>
+<pre><code>## [1] 7.766234</code></pre>
+<pre class="r"><code>mean(train2$CumlFinancial)</code></pre>
+<pre><code>## [1] 34.87845</code></pre>
+<pre class="r"><code>mean(train1$CumlRegulatory)</code></pre>
+<pre><code>## [1] 3.983766</code></pre>
+<pre class="r"><code>mean(train2$CumlRegulatory)</code></pre>
+<pre><code>## [1] 12.28729</code></pre>
+<pre class="r"><code>mean(train1$AllSourcesCO2, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 15.09418</code></pre>
+<pre class="r"><code>mean(train2$AllSourcesCO2, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 5.841604</code></pre>
+<pre class="r"><code>mean(train1$AllSourcesSO2, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 0.04923232</code></pre>
+<pre class="r"><code>mean(train2$AllSourcesSO2, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 0.01533239</code></pre>
+<pre class="r"><code>mean(train1$AllSourcesNOx, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 0.0282891</code></pre>
+<pre class="r"><code>mean(train2$AllSourcesNOx, na.rm = TRUE)</code></pre>
+<pre><code>## [1] 0.007871944</code></pre>
+<div id="on-average-train1-contains-more-republican-states-than-train2" class="section level4">
+<h4>- On average, train1 contains more republican states than train2</h4>
+</div>
+<div id="on-average-train1-contains-states-that-have-recorded-more-co2-so2-and-nox-emissions-than-train2" class="section level4">
+<h4>- On average, train1 contains states that have recorded more CO2, SO2 and NOx emissions than train2</h4>
+</div>
+</div>
+<div id="problem-8---creating-the-model-on-the-first-cluster" class="section level3">
+<h3>Problem 8 - Creating the Model on the First Cluster</h3>
+<p>Using the variables GenHydro, GenSolar, CumlFinancial, CumlRegulatory, Total.salary and Import, creating mod1 using a logistic regression on train1.</p>
+<pre class="r"><code>mod1 &lt;- glm(GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+               CumlRegulatory + Total.salary + Import, 
+           data = train1,
+           family = binomial)</code></pre>
+<p>What variable is most predictive?</p>
+<pre class="r"><code>summary(mod1)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+##     CumlRegulatory + Total.salary + Import, family = binomial, 
+##     data = train1)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.8654  -0.2715  -0.1692  -0.1194   2.8802  
+## 
+## Coefficients:
+##                  Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)    -7.574e+00  1.945e+00  -3.893 9.89e-05 ***
+## GenHydro       -1.201e+00  2.082e+00  -0.577  0.56398    
+## GenSolar        2.324e+04  1.104e+04   2.106  0.03524 *  
+## CumlFinancial   6.836e-02  2.159e-02   3.166  0.00154 ** 
+## CumlRegulatory  1.589e-01  1.145e-01   1.388  0.16521    
+## Total.salary    1.549e-01  9.190e-02   1.686  0.09188 .  
+## Import         -3.323e-01  9.628e-01  -0.345  0.72995    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 131.538  on 307  degrees of freedom
+## Residual deviance:  90.376  on 301  degrees of freedom
+## AIC: 104.38
+## 
+## Number of Fisher Scoring iterations: 7</code></pre>
+<div id="cumlfinancial" class="section level4">
+<h4>CumlFinancial</h4>
+</div>
+</div>
+<div id="problem-9---evaluating-the-model-obtained-using-the-first-cluster" class="section level3">
+<h3>Problem 9 - Evaluating the Model Obtained Using the First Cluster</h3>
+<p>What is the accuracy on test1, the subset of test corresponding to the first cluster?</p>
+<pre class="r"><code>predTest1 &lt;- predict(mod1, newdata = test1, type = &quot;response&quot;)
+table(test1$GenSolarBinary, predTest1 &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   114    1
+##   1    11    4</code></pre>
+<pre class="r"><code>(114 + 4) / nrow(test1)</code></pre>
+<pre><code>## [1] 0.9076923</code></pre>
+<p><strong>Wow!</strong></p>
+<p>I’d like to know if mod1 gives us an edge over mod on the dataset test1.</p>
+<p>Using mod, predicting GenSolarBinary for the observation in test1 and report the accuracy below:</p>
+<pre class="r"><code>predTest1WithMod &lt;- predict(mod, newdata = test1, type = &quot;response&quot;)
+table(test1$GenSolarBinary, predTest1WithMod &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE
+##   0   115
+##   1    15</code></pre>
+<pre class="r"><code>115 / nrow(test1)</code></pre>
+<pre><code>## [1] 0.8846154</code></pre>
+</div>
+<div id="problem-10---creating-the-model-on-the-second-cluster" class="section level3">
+<h3>Problem 10 - Creating the Model on the Second Cluster</h3>
+<p>Using the variables GenHydro, GenSolar, CumlFinancial, CumlRegulatory, Total.salary and Import, creating mod2 using a logistic regression on train2.</p>
+<pre class="r"><code>mod2 &lt;- glm(GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+                CumlRegulatory + Total.salary + Import, 
+            data = train2,
+            family = binomial)</code></pre>
+<p>Select the correct statement(s) below?</p>
+<pre class="r"><code>summary(mod2)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+##     CumlRegulatory + Total.salary + Import, family = binomial, 
+##     data = train2)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -3.6321  -0.7964   0.0083   0.8536   1.7143  
+## 
+## Coefficients:
+##                 Estimate Std. Error z value Pr(&gt;|z|)   
+## (Intercept)     -4.14627    1.43969  -2.880  0.00398 **
+## GenHydro        -3.88698    1.23196  -3.155  0.00160 **
+## GenSolar       951.59397  322.86360   2.947  0.00321 **
+## CumlFinancial    0.02077    0.01008   2.060  0.03939 * 
+## CumlRegulatory   0.17315    0.06541   2.647  0.00812 **
+## Total.salary     0.08472    0.05576   1.519  0.12869   
+## Import          -0.72189    0.40427  -1.786  0.07416 . 
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 250.25  on 180  degrees of freedom
+## Residual deviance: 173.65  on 174  degrees of freedom
+## AIC: 187.65
+## 
+## Number of Fisher Scoring iterations: 7</code></pre>
+<pre class="r"><code>summary(mod1)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+##     CumlRegulatory + Total.salary + Import, family = binomial, 
+##     data = train1)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.8654  -0.2715  -0.1692  -0.1194   2.8802  
+## 
+## Coefficients:
+##                  Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)    -7.574e+00  1.945e+00  -3.893 9.89e-05 ***
+## GenHydro       -1.201e+00  2.082e+00  -0.577  0.56398    
+## GenSolar        2.324e+04  1.104e+04   2.106  0.03524 *  
+## CumlFinancial   6.836e-02  2.159e-02   3.166  0.00154 ** 
+## CumlRegulatory  1.589e-01  1.145e-01   1.388  0.16521    
+## Total.salary    1.549e-01  9.190e-02   1.686  0.09188 .  
+## Import         -3.323e-01  9.628e-01  -0.345  0.72995    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 131.538  on 307  degrees of freedom
+## Residual deviance:  90.376  on 301  degrees of freedom
+## AIC: 104.38
+## 
+## Number of Fisher Scoring iterations: 7</code></pre>
+<div id="unlike-mod1-the-number-of-regulatory-policies-is-more-predictive-than-the-number-of-financial-incentives-in-mod2" class="section level4">
+<h4>- Unlike mod1, the number of regulatory policies is more predictive than the number of financial incentives in mod2</h4>
+</div>
+</div>
+<div id="problem-11---evaluating-the-model-obtained-using-the-second-cluster" class="section level3">
+<h3>Problem 11 - Evaluating the Model Obtained Using the Second Cluster</h3>
+<p>Using the threshold of 0.5, what is the accuracy on test2, the subset of test corresponding to the second cluster?</p>
+<pre class="r"><code>predTest2 &lt;- predict(mod2, newdata = test2, type = &quot;response&quot;)
+table(test2$GenSolarBinary, predTest2 &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    40    6
+##   1    14   20</code></pre>
+<pre class="r"><code>(40 + 20) / nrow(test2)</code></pre>
+<pre><code>## [1] 0.75</code></pre>
+<p>We would like to know if mod2 gives us an edge over mod on the dataset test2.</p>
+<p>Using mod, predicting GenSolarBinary for the observation in test2 and report the accuracy below:</p>
+<pre class="r"><code>predTest2WithMod &lt;- predict(mod, newdata = test2, type = &quot;response&quot;)
+table(test2$GenSolarBinary, predTest2WithMod &gt; 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    39    7
+##   1    16   18</code></pre>
+<pre class="r"><code>(39 + 18) / nrow(test2)</code></pre>
+<pre><code>## [1] 0.7125</code></pre>
+</div>
+<div id="problem-12---evaluating-the-performance-of-the-cluster-the-predict-algorithm" class="section level3">
+<h3>Problem 12 - Evaluating the Performance of the Cluster-the-Predict Algorithm</h3>
+<p>To compute the overall test-set accuracy of the cluster-the-predict approach, I can combine all the test-set predictions into a single vector “AllPredictions” and all the true outcomes into a single vector “AllOutcomes”.</p>
+<pre class="r"><code>AllPredictions &lt;- c(predTest1, predTest2)
+AllOutcomes &lt;- c(test1$GenSolarBinary, test2$GenSolarBinary)</code></pre>
+<p>What is the overall accuracy on the test-set, using the cluster-then-predict approach, again using a threshold of 0.5?</p>
+<pre class="r"><code>table(AllOutcomes, AllPredictions &gt; 0.5)</code></pre>
+<pre><code>##            
+## AllOutcomes FALSE TRUE
+##           0   154    7
+##           1    25   24</code></pre>
+<pre class="r"><code>length(AllOutcomes)</code></pre>
+<pre><code>## [1] 210</code></pre>
+<pre class="r"><code>length(AllPredictions)</code></pre>
+<pre><code>## [1] 210</code></pre>
+<pre class="r"><code>(154 + 24) / length(AllOutcomes)</code></pre>
+<pre><code>## [1] 0.847619</code></pre>
+</div>

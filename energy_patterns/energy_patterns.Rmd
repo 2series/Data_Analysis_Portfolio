@@ -1,0 +1,392 @@
+---
+title: "Patterns In Renewable Energy Generation"
+author: "Rihad Variawa"
+date: "2019-04-11"
+output: html_document
+summary: 'Exploring renewable energies'
+header:
+  image: 'headers/ren.jpg'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# install packages if necessary
+list.of.packages <- c("ggplot2", "dplyr", "ggthemes", "caret", "flexclust")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+# load packages
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+library(caret)
+library(flexclust)
+```
+
+The use of coal in the United States peaked in 2005, and since then has decreased by 25%, being replaced by renewable energy sources and more efficient use (Lovins, 2014). As the US pursues a portfolio of more diverse, sustainable and secure energy sources, there are many questions to consider. 
+
+1. What are effective factors in incentivizing states to adopt more environmentally friendly energy generation methods? 
+2. How do these factors vary by state? 
+3. How can we direct resources to different places in the country and ensure that they effectively drive renewable energy sources adoption? 
+
+To derive insights and explore these questions, I'll take a combination of generation, usage, and greenhouse emission data by state and combine it with macro-economic and political information.
+
+For this analysis, I've gathered data from various sources to include the following information for each state within the U.S. for the years spanning year 2000 to year 2013. The aggregated dataset energy.csv.xz results in a total of 27 variables and 699 observations. Each observation contains one record per state per year. Here's a detailed description of the variables:
+
+- GenTotal: Annual generation of energy using all types of energy sources (coal, nuclear, hydroelectric, solar, etc.) normalized by the state population at a given year.
+- GenTotalRenewable: Annual generation of energy using all renewable energy sources normalized by the state population at a given year.
+- GenHydro, GenSolar: Annual generation of energy using each type of energy source as a percent of the total energy generation.
+- GenTotalRenewableBinary, GenSolarBinary: 1 if generation from solar or other renewable energy sources increased between a year n and a year n+1. 0 if it did not increase.
+- AllSourcesCO2, AllSourcesSO2 and AllSourcesNOx: Annual emissions per state in metric tons, normalized by the respective state population at a given year and caused by all energy generation sources.
+- EPriceResidential, EPriceCommercial, EPriceIndustrial, EPriceTransportation, EPriceTotal: Average electricity price per state, per sector (residential, industrial, commercial, etc.)
+- ESalesResidential, ESalesCommercial, ESalesIndustrial, ESalesTransportation, ESalesTotal: Annual normalized sales of electricity per state, per sector.
+- CumlRegulatory, CumlFinancial: Number of energy-related financial incentives and regulations created by a state per year.
+- Demographic data such as annual wages per capita and presidential results (0 if a state voted republican, 1 is democrat).
+
+### Problem 1 - Total Renewable Energy Generation
+Load energy.csv into a data frame called energy.
+
+```{r}
+energy <- read.csv("energy.csv.xz")
+str(energy)
+summary(energy)
+```
+
+**Renewable energy sources are considered to include geothermal, hydroelectric, biomass, solar and wind.**
+
+Which state in the US seems to have the highest total generation of energy from renewable sources (using the variable GenTotalRenewable)?
+
+```{r}
+energy[which.max(energy$GenTotalRenewable), ]
+```
+
+#### Idaho (ID)
+
+Which year did the above state produce the highest energy generation from renewable resources?
+#### 2000
+
+### Problem 2 - Relationship Between Politics and Greenhouse Emissions
+What is the average CO2 emissions from all sources of energy for: Note Using na.rm = TRUE in our calculations!
+
+- states during years in which they voted republican?
+
+```{r}
+mean(subset(energy, presidential.results == 0)$AllSourcesCO2, na.rm = TRUE)
+```
+
+- states during years in which they voted democrat?
+
+```{r}
+mean(subset(energy, presidential.results == 1)$AllSourcesCO2, na.rm = TRUE)
+```
+
+States that voted democrat have on average higher NOx emissions than states that voted republican across all years. 
+
+Is this statement true or false?
+
+```{r}
+mean(subset(energy, presidential.results == 0)$AllSourcesNOx, na.rm = TRUE)
+```
+
+```{r}
+mean(subset(energy, presidential.results == 1)$AllSourcesNOx, na.rm = TRUE)
+```
+
+#### False
+
+### Problem 3 - Relationship Between Greenhouse Emissions and Energy Sales
+What is the correlation between overall CO2 emissions and energy sales made to industrial facilities? 
+
+Note that the variables AllSourcesCO2 and EsalesIndustrial contain NAs. Using the parameter: use="complete" to handle NAs in this question!
+
+```{r}
+cor(energy$AllSourcesCO2, energy$EsalesIndustrial, use = "complete")
+```
+
+Choose the correct answers from the following statements:
+
+```{r}
+cor(energy$AllSourcesSO2, energy$EsalesIndustrial, use = "complete")
+```
+
+```{r}
+cor(energy$AllSourcesNOx, energy$EsalesResidential, use = "complete")
+```
+
+```{r}
+cor(energy$AllSourcesCO2, energy$EsalesCommercial, use = "complete")
+```
+
+#### Overall SO2 emissions are likely higher with increased industrial energy sales
+
+### Problem 4 - Boxplot of Energy Prices per State
+Creating a boxplot of the total energy price (EPriceTotal) by State across the data, and a table summarizing the mean of EPriceTotal by State.
+
+```{r}
+priceBoxplot <- ggplot(energy, aes(STATE, EPriceTotal)) 
+priceBoxplot + geom_boxplot()
+```
+
+What observations do we make?
+#### - The boxplot shows a clear outlier, the state of Hawaii, with much higher energy price compared to the rest of the U.S.
+#### - When looking at the average energy prices, there seems to be three price tiers ($5-$9, $10-$14, and $20+)
+
+Which state has the lowest average energy price of all? Using a table to explore this question.
+
+```{r}
+sum(is.na(energy$EPriceTotal))
+mean(energy$EPriceTotal)
+avgPriceByState <- aggregate(EPriceTotal ~ STATE, energy, mean)
+avgPriceByState[which.min(avgPriceByState$EPriceTotal), ]
+```
+
+#### Wyoming (WY)
+
+Is this state associated with the highest mean total energy generation (GenTotal)?
+
+```{r}
+avgGenByState <- aggregate(GenTotal ~ STATE, energy, mean)
+avgGenByState
+avgGenByState[which.max(avgGenByState$GenTotal), ]
+```
+
+#### True
+
+### Problem 5 - Prediction Model for Solar Generation
+We are interested in predicting whether states are going to increase their solar energy generation over the next year. 
+
+Let's subset our dataset into a training and a testing set by using the following code:
+
+```{r}
+set.seed(144)
+spl <- sample(1 : nrow(energy), size = 0.7 * nrow(energy))
+train <- energy[spl, ]
+test <- energy[-spl, ]
+```
+
+Let's create a logistic regression model "mod" using the train set to predict the binary variable GenSolarBinary.
+
+To do so, consider the following as potential predictive variables: GenHydro, GenSolar, CumlFinancial, CumlRegulatory, Total.salary, Import.
+
+```{r}
+mod <- glm(GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+             CumlRegulatory + Total.salary + Import, 
+           data = train, 
+           family = binomial)
+```
+
+Which variable is most predictive in the model?
+
+```{r}
+summary(mod)
+```
+
+#### CumlRegulatory
+
+### Problem 6 - Performance on the Test Set
+Computing the predictions on the test-set. Using a threshold of 0.5, what is the accuracy of our model on the test-set?
+
+```{r}
+predTest <- predict(mod, newdata = test, type = "response")
+table(test$GenSolarBinary, predTest > 0.5)
+(154 + 18) / nrow(test)
+```
+
+**Cool!**
+
+What is the accuracy for states voting republican?
+
+```{r}
+testWithPred <- test
+testWithPred$predTest <- predTest
+str(testWithPred)
+testWithPredRep <- subset(testWithPred, presidential.results == 0)
+table(testWithPredRep$GenSolarBinary, testWithPredRep$predTest > 0.5)
+(90 + 2) / nrow(testWithPredRep)
+```
+
+What is the accuracy for states voting democrat?
+
+```{r}
+testWithPredDem <- subset(testWithPred, presidential.results == 1)
+table(testWithPredDem$GenSolarBinary, testWithPredDem$predTest > 0.5)
+(64 + 16) / nrow(testWithPredDem)
+```
+
+### Problem 7 - Clustering of the Observations
+We can perhaps improve our accuracy if we implement a cluster-the-predict approach. I'm interested in clustering the observations based on information about the regulatory and financial incentives, the elections outcome and the population wealth in each state across the years, in addition to whether the state was an energy importer or not.
+
+Let's create a train.limited and test.limited datasets, where we only keep the variables CumlRegulatory, CumlFinancial, presidential.results, Total.salary, and Import.
+
+```{r}
+str(train)
+train.limited <- subset(train, select = CumlFinancial:Import)
+str(test)
+test.limited <- subset(test, select = CumlFinancial:Import)
+```
+
+Using the "preProcess" function on the train.limited set, I can compute the train.norm and test.norm.
+
+```{r}
+preprocTrain <- preProcess(train.limited)
+train.norm <- predict(preprocTrain, train.limited)
+preprocTest <- preProcess(test.limited)
+test.norm <- predict(preprocTest, test.limited)
+```
+
+Why didn't I include the dependent variable GenSolarBinary in this clustering phase?
+#### - Needing to know the dependent variable value to assign an observation to a cluster defeats the purpose of the cluster-then-predict methodology
+
+Let's use kmeans clustering for this problem with a seed of 144, k=2 and keep the maximum number of iterations at 1,000.
+
+```{r}
+set.seed(144)
+k <- 2
+trainKMC <- kmeans(train.norm, centers = k, iter.max = 1000)
+set.seed(144)
+testKMC <- kmeans(test.norm, centers = k, iter.max = 1000)
+```
+
+Using the flexclust package, identifying the clusters and call train1 the subset of train corresponding to the first cluster, and train2 the subset of train corresponding to the second cluster.
+
+```{r}
+trainKMC.kcca <- as.kcca(trainKMC, train.norm)
+
+# clusters(trainKMC.kcca)
+trainClusters <- predict(trainKMC.kcca)
+table(trainClusters)
+train1 <- subset(train, trainClusters == 1)
+train2 <- subset(train, trainClusters == 2)
+str(train1)
+str(train2)
+```
+
+```{r}
+testKMC.kcca <- as.kcca(testKMC, test.norm)
+# clusters(testKMC.kcca)
+testClusters <- predict(testKMC.kcca)
+table(testClusters)
+test1 <- subset(test, testClusters == 1)
+test2 <- subset(test, testClusters == 2)
+str(test1)
+str(test2)
+```
+
+Select the correct statement(s) below:
+
+```{r}
+table(train1$presidential.results)
+table(train2$presidential.results)
+
+mean(train1$CumlFinancial)
+mean(train2$CumlFinancial)
+
+mean(train1$CumlRegulatory)
+mean(train2$CumlRegulatory)
+
+mean(train1$AllSourcesCO2, na.rm = TRUE)
+mean(train2$AllSourcesCO2, na.rm = TRUE)
+
+mean(train1$AllSourcesSO2, na.rm = TRUE)
+mean(train2$AllSourcesSO2, na.rm = TRUE)
+
+mean(train1$AllSourcesNOx, na.rm = TRUE)
+mean(train2$AllSourcesNOx, na.rm = TRUE)
+```
+
+#### - On average, train1 contains more republican states than train2
+#### - On average, train1 contains states that have recorded more CO2, SO2 and NOx emissions than train2
+
+### Problem 8 - Creating the Model on the First Cluster
+Using the variables GenHydro, GenSolar, CumlFinancial, CumlRegulatory, Total.salary and Import, creating mod1 using a logistic regression on train1.
+
+```{r}
+mod1 <- glm(GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+               CumlRegulatory + Total.salary + Import, 
+           data = train1,
+           family = binomial)
+```
+
+What variable is most predictive?
+
+```{r}
+summary(mod1)
+```
+
+#### CumlFinancial
+
+### Problem 9 - Evaluating the Model Obtained Using the First Cluster
+What is the accuracy on test1, the subset of test corresponding to the first cluster?
+
+```{r}
+predTest1 <- predict(mod1, newdata = test1, type = "response")
+table(test1$GenSolarBinary, predTest1 > 0.5)
+(114 + 4) / nrow(test1)
+```
+
+**Wow!**
+
+I'd like to know if mod1 gives us an edge over mod on the dataset test1. 
+
+Using mod, predicting GenSolarBinary for the observation in test1 and report the accuracy below:
+
+```{r}
+predTest1WithMod <- predict(mod, newdata = test1, type = "response")
+table(test1$GenSolarBinary, predTest1WithMod > 0.5)
+115 / nrow(test1)
+```
+
+### Problem 10 - Creating the Model on the Second Cluster
+Using the variables GenHydro, GenSolar, CumlFinancial, CumlRegulatory, Total.salary and Import, creating mod2 using a logistic regression on train2.
+
+```{r}
+mod2 <- glm(GenSolarBinary ~ GenHydro + GenSolar + CumlFinancial + 
+                CumlRegulatory + Total.salary + Import, 
+            data = train2,
+            family = binomial)
+```
+
+Select the correct statement(s) below?
+
+```{r}
+summary(mod2)
+summary(mod1)
+```
+
+#### - Unlike mod1, the number of regulatory policies is more predictive than the number of financial incentives in mod2
+
+### Problem 11 - Evaluating the Model Obtained Using the Second Cluster
+Using the threshold of 0.5, what is the accuracy on test2, the subset of test corresponding to the second cluster?
+
+```{r}
+predTest2 <- predict(mod2, newdata = test2, type = "response")
+table(test2$GenSolarBinary, predTest2 > 0.5)
+(40 + 20) / nrow(test2)
+```
+
+We would like to know if mod2 gives us an edge over mod on the dataset test2. 
+
+Using mod, predicting GenSolarBinary for the observation in test2 and report the accuracy below:
+
+```{r}
+predTest2WithMod <- predict(mod, newdata = test2, type = "response")
+table(test2$GenSolarBinary, predTest2WithMod > 0.5)
+(39 + 18) / nrow(test2)
+```
+
+### Problem 12 - Evaluating the Performance of the Cluster-the-Predict Algorithm
+To compute the overall test-set accuracy of the cluster-the-predict approach, I can combine all the test-set predictions into a single vector "AllPredictions" and all the true outcomes into a single vector "AllOutcomes".
+
+```{r}
+AllPredictions <- c(predTest1, predTest2)
+AllOutcomes <- c(test1$GenSolarBinary, test2$GenSolarBinary)
+```
+
+What is the overall accuracy on the test-set, using the cluster-then-predict approach, again using a threshold of 0.5?
+
+```{r}
+table(AllOutcomes, AllPredictions > 0.5)
+length(AllOutcomes)
+length(AllPredictions)
+(154 + 24) / length(AllOutcomes)
+```

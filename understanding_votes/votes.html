@@ -1,0 +1,353 @@
+---
+title: "Understanding Why People Vote?"
+author: "Rihad Variawa"
+date: "2019-04-08"
+output: html_document
+summary: 'Why do people vote?'
+header:
+  image: 'headers/vt.jpg'
+---
+
+
+
+<p>In August 2006 three researchers (Alan Gerber and Donald Green of Yale University, and Christopher Larimer of the University of Northern Iowa) carried out a large scale field experiment in Michigan, USA to test the hypothesis that one of the reasons people vote is <strong>social, or extrinsic, pressure.</strong></p>
+<p>To quote the first paragraph of their 2008 research paper:</p>
+<ul>
+<li>“Among the most striking features of a democratic political system is the participation of millions of voters in elections. Why do large numbers of people vote, despite the fact that …”the casting of a single vote is of no significance where there is a multitude of electors“? One hypothesis is adherence to social norms. Voting is widely regarded as a citizen duty, and citizens worry that others will think less of them if they fail to participate in elections. Voters’ sense of civic duty has long been a leading explanation of voters turnout…”</li>
+</ul>
+<p>In this analysis, I’ll use both logistic regression and classification trees to analyze the data they collected.</p>
+<div id="the-data" class="section level3">
+<h3>The data</h3>
+<p>The researchers grouped about 344,000 voters into different groups randomly - about 191,000 voters were a “control” group, and the rest were categorized into one of four “treatment” groups. These five groups correspond to five binary variables in the dataset.</p>
+<ol style="list-style-type: decimal">
+<li>“Civic Duty” (variable civicduty) group members were sent a letter that simply said “DO YOUR CIVIC DUTY - VOTE!”</li>
+<li>“Hawthorne Effect” (variable hawthorne) group members were sent a letter that had the “Civic Duty” message plus the additional message “YOU ARE BEING STUDIED” and they were informed that their voting behavior would be examined by means of public records.</li>
+<li>“Self” (variable self) group members received the “Civic Duty” message as well as the recent voting record of everyone in that household and a message stating that another message would be sent after the election with updated records.</li>
+<li>“Neighbors” (variable neighbors) group members were given the same message as that for the “Self” group, except the message not only had the household voting records but, also that of neighbors - maximizing social pressure.</li>
+<li>“Control” (variable control) group members were not sent anything, and represented the typical voting situation.</li>
+</ol>
+<p>Additional variables include sex (0 for male, 1 for female), yob (year of birth), and the dependent variable voting (1 if they voted, 0 otherwise).</p>
+</div>
+<div id="problem-1.1---exploration-and-logistic-regression" class="section level3">
+<h3>Problem 1.1 - Exploration and Logistic Regression</h3>
+<p>We will first get familiar with the data.</p>
+<p>What proportion of people in this dataset voted in this election?</p>
+<pre class="r"><code>gerber &lt;- read.csv(&quot;gerber.csv&quot;)
+str(gerber)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    344084 obs. of  8 variables:
+##  $ sex      : int  0 1 1 1 0 1 0 0 1 0 ...
+##  $ yob      : int  1941 1947 1982 1950 1951 1959 1956 1981 1968 1967 ...
+##  $ voting   : int  0 0 1 1 1 1 1 0 0 0 ...
+##  $ hawthorne: int  0 0 1 1 1 0 0 0 0 0 ...
+##  $ civicduty: int  1 1 0 0 0 0 0 0 0 0 ...
+##  $ neighbors: int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ self     : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ control  : int  0 0 0 0 0 1 1 1 1 1 ...</code></pre>
+<pre class="r"><code>table(gerber$voting)</code></pre>
+<pre><code>## 
+##      0      1 
+## 235388 108696</code></pre>
+<pre class="r"><code>108696 / (235388 + 108696)</code></pre>
+<pre><code>## [1] 0.3158996</code></pre>
+</div>
+<div id="problem-1.2---exploration-and-logistic-regression" class="section level3">
+<h3>Problem 1.2 - Exploration and Logistic Regression</h3>
+<p>Which of the four “treatment groups” had the largest percentage of people who actually voted (voting = 1)?</p>
+<pre class="r"><code># howthorne
+table(gerber$voting, gerber$hawthorne)</code></pre>
+<pre><code>##    
+##          0      1
+##   0 209500  25888
+##   1  96380  12316</code></pre>
+<pre class="r"><code>12316 / (25888 + 12316)</code></pre>
+<pre><code>## [1] 0.3223746</code></pre>
+<pre class="r"><code># civicduty
+table(gerber$voting, gerber$civicduty)</code></pre>
+<pre><code>##    
+##          0      1
+##   0 209191  26197
+##   1  96675  12021</code></pre>
+<pre class="r"><code>12021 / (26197 + 12021)</code></pre>
+<pre><code>## [1] 0.3145377</code></pre>
+<pre class="r"><code># neighbors
+table(gerber$voting, gerber$neighbors)</code></pre>
+<pre><code>##    
+##          0      1
+##   0 211625  23763
+##   1  94258  14438</code></pre>
+<pre class="r"><code>14438 / (23763 + 14438)</code></pre>
+<pre><code>## [1] 0.3779482</code></pre>
+<pre class="r"><code># self
+table(gerber$voting, gerber$self)</code></pre>
+<pre><code>##    
+##          0      1
+##   0 210361  25027
+##   1  95505  13191</code></pre>
+<pre class="r"><code>13191 / (25027 + 13191)</code></pre>
+<pre><code>## [1] 0.3451515</code></pre>
+<div id="neighbors" class="section level4">
+<h4>Neighbors</h4>
+</div>
+</div>
+<div id="problem-1.3---exploration-and-logistic-regression" class="section level3">
+<h3>Problem 1.3 - Exploration and Logistic Regression</h3>
+<p>Build a logistic regression model for voting using the four treatment group variables as the independent variables (civicduty, hawthorne, self, and neighbors). Using all the data to build the model (NOT spliting the data into a training set and testing set).</p>
+<p>Which of the following coefficients are significant in the logistic regression model?</p>
+<pre class="r"><code>VotingLog &lt;- glm(voting ~ civicduty + hawthorne + self + neighbors, 
+                 data = gerber, family = binomial)
+summary(VotingLog)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = voting ~ civicduty + hawthorne + self + neighbors, 
+##     family = binomial, data = gerber)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -0.9744  -0.8691  -0.8389   1.4586   1.5590  
+## 
+## Coefficients:
+##              Estimate Std. Error  z value Pr(&gt;|z|)    
+## (Intercept) -0.863358   0.005006 -172.459  &lt; 2e-16 ***
+## civicduty    0.084368   0.012100    6.972 3.12e-12 ***
+## hawthorne    0.120477   0.012037   10.009  &lt; 2e-16 ***
+## self         0.222937   0.011867   18.786  &lt; 2e-16 ***
+## neighbors    0.365092   0.011679   31.260  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 429238  on 344083  degrees of freedom
+## Residual deviance: 428090  on 344079  degrees of freedom
+## AIC: 428100
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<div id="all-coefficients-are-significant" class="section level4">
+<h4>All coefficients are significant</h4>
+</div>
+</div>
+<div id="problem-1.4---exploration-and-logistic-regression" class="section level3">
+<h3>Problem 1.4 - Exploration and Logistic Regression</h3>
+<p>Using a threshold of 0.3, what is the accuracy of the logistic regression model? (When making predictions, you don’t need to use the new data argument since we didn’t split our data.)</p>
+<pre class="r"><code>predictVoting &lt;- predict(VotingLog, type = &quot;response&quot;)
+table(gerber$voting, predictVoting &gt; 0.3)</code></pre>
+<pre><code>##    
+##      FALSE   TRUE
+##   0 134513 100875
+##   1  56730  51966</code></pre>
+<pre class="r"><code>(134513 + 51966) / nrow(gerber)</code></pre>
+<pre><code>## [1] 0.5419578</code></pre>
+</div>
+<div id="problem-1.5---exploration-and-logistic-regression" class="section level3">
+<h3>Problem 1.5 - Exploration and Logistic Regression</h3>
+<p>Using a threshold of 0.5, what is the accuracy of the logistic regression model?</p>
+<pre class="r"><code>table(gerber$voting, predictVoting &gt; 0.5)</code></pre>
+<pre><code>##    
+##      FALSE
+##   0 235388
+##   1 108696</code></pre>
+<pre class="r"><code>(235388) / nrow(gerber)</code></pre>
+<pre><code>## [1] 0.6841004</code></pre>
+<pre class="r"><code>table(gerber$voting)</code></pre>
+<pre><code>## 
+##      0      1 
+## 235388 108696</code></pre>
+<pre class="r"><code>235388 / (235388 + 108696)</code></pre>
+<pre><code>## [1] 0.6841004</code></pre>
+<div id="equal-to-accuracy-of-threshold-of-0.5" class="section level4">
+<h4>0.6841004 =&gt; equal to accuracy of threshold of 0.5</h4>
+</div>
+</div>
+<div id="problem-1.6---exploration-and-logistic-regression" class="section level3">
+<h3>Problem 1.6 - Exploration and Logistic Regression</h3>
+<p>Compare our previous two answers to the percentage of people who did not vote (the baseline accuracy) and computing the AUC of the model. What is happening here?</p>
+<pre class="r"><code>library(ROCR)</code></pre>
+<pre><code>## Loading required package: gplots</code></pre>
+<pre><code>## 
+## Attaching package: &#39;gplots&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:stats&#39;:
+## 
+##     lowess</code></pre>
+<pre class="r"><code>ROCRpred = prediction(predictVoting, gerber$voting)
+as.numeric(performance(ROCRpred, &quot;auc&quot;)@y.values)</code></pre>
+<pre><code>## [1] 0.5308461</code></pre>
+<div id="even-though-all-of-the-variables-are-significant-this-is-a-weak-predictive-model." class="section level4">
+<h4>Even though all of the variables are significant, this is a weak predictive model.</h4>
+</div>
+</div>
+<div id="problem-2.1---trees" class="section level3">
+<h3>Problem 2.1 - Trees</h3>
+<p>I’ll now try out trees! Building a CART tree for voting using all data and the same four treatment variables we used before. Don’t set the option method=“class” - we are actually going to create a <strong>regression tree</strong> here.</p>
+<p>We are interested in building a tree to explore the fraction of people who vote, or the probability of voting.</p>
+<p>I’d like CART to split our groups if they have different probabilities of voting. If we used method=‘class’, CART would only split if one of the groups had a probability of voting above 50% and the other had a probability of voting less than 50% (since the predicted outcomes would be different).</p>
+<p>However, with regression trees, CART will split even if both groups have probability less than 50%. Leave all the parameters at their default values.</p>
+<pre class="r"><code>library(rpart)
+library(rpart.plot)
+CARTmodel &lt;- 
+    rpart(voting ~ civicduty + hawthorne + self + neighbors, data = gerber)
+# plot the tree. What happens, and if relevant, why?
+prp(CARTmodel)</code></pre>
+<p><img src="/project/understanding_votes/votes_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<div id="no-variables-are-used-the-tree-is-only-a-root-node---none-of-the-variables-make-a-big-enough-effect-to-be-split-on." class="section level4">
+<h4>No variables are used (the tree is only a root node) - none of the variables make a big enough effect to be split on.</h4>
+</div>
+</div>
+<div id="problem-2.2---trees" class="section level3">
+<h3>Problem 2.2 - Trees</h3>
+<p>Now build the tree:</p>
+<pre class="r"><code>CARTmodel2 &lt;- 
+    rpart(voting ~ civicduty + hawthorne + self + neighbors, 
+          data=gerber, cp=0.0)
+prp(CARTmodel2)</code></pre>
+<p><img src="/project/understanding_votes/votes_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>What do we observe about the order of the splits?
+#### Neighbor is the first split, civic duty is the last.</p>
+</div>
+<div id="problem-2.3---trees" class="section level3">
+<h3>Problem 2.3 - Trees</h3>
+<p>Using only the CART tree plot, we note that the fraction (a number between 0 and 1) of “Civic Duty” people voted amounted to:
+#### 31%</p>
+</div>
+<div id="problem-2.4---trees" class="section level3">
+<h3>Problem 2.4 - Trees</h3>
+<p>Building a new tree that includes the “sex” variable, again with cp = 0.0. Notice that sex appears as a split that is of secondary importance to the treatment group.</p>
+<pre class="r"><code>CARTmodel3 &lt;- 
+    rpart(voting ~ civicduty + hawthorne + self + neighbors + sex, 
+          data=gerber, cp=0.0)
+prp(CARTmodel3)</code></pre>
+<p><img src="/project/understanding_votes/votes_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>In the control group, which gender is more likely to vote?
+#### Men (0)</p>
+<p>In the “Civic Duty” group, which gender is more likely to vote?
+#### Men (0)</p>
+</div>
+<div id="problem-3.1---interaction-terms" class="section level3">
+<h3>Problem 3.1 - Interaction Terms</h3>
+<p>We know trees can handle “nonlinear” relationships, e.g. “in the ‘Civic Duty’ group and female”, but as we will see in the next few questions, it is possible to do the same for logistic regression.</p>
+<p>Firstly, let’s explore what trees can tell us. Let’s just focus on the “Control” treatment group. Creating a regression tree using just the “control” variable, then creating another tree with the “control” and “sex” variables, both with cp=0.0.</p>
+<pre class="r"><code>CARTcontrol &lt;- rpart(voting ~ control, data = gerber, cp = 0.0)
+CARTcontrolAndSex &lt;- rpart(voting ~ control + sex, data = gerber, cp = 0.0)</code></pre>
+<p>In the “control” only tree, what is the absolute value of the difference in the predicted probability of voting between being in the control group versus being in a different group?</p>
+<p>Using the absolute value function to get an answer, i.e. abs(Control Prediction - Non-Control Prediction). I’ll add the argument “digits = 6” to the prp code to get a more accurate estimate.</p>
+<pre class="r"><code>prp(CARTcontrol, digits = 6)</code></pre>
+<p><img src="/project/understanding_votes/votes_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<pre class="r"><code>abs(0.296638 - 0.34)</code></pre>
+<pre><code>## [1] 0.043362</code></pre>
+<div id="section" class="section level4">
+<h4>0.043362</h4>
+</div>
+</div>
+<div id="problem-3.2---interaction-terms" class="section level3">
+<h3>Problem 3.2 - Interaction Terms</h3>
+<p>Now, using the second tree (with control and sex), determine who is affected more by NOT being in the control group (being in any of the four treatment groups):</p>
+<pre class="r"><code>prp(CARTcontrolAndSex, digits = 6)</code></pre>
+<p><img src="/project/understanding_votes/votes_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<div id="they-are-affected-about-the-same-change-in-probability-within-0.001-of-each-other." class="section level4">
+<h4>They are affected about the same (change in probability within 0.001 of each other).</h4>
+</div>
+</div>
+<div id="problem-3.3---interaction-terms" class="section level3">
+<h3>Problem 3.3 - Interaction Terms</h3>
+<p>Going back to logistic regression now, I’ll build a model using “sex” and “control”. Interpreting the coefficient for “sex”:</p>
+<pre class="r"><code>VotingControlAndSexLog &lt;- 
+    glm(voting ~ control + sex, data = gerber, family = binomial)
+summary(VotingControlAndSexLog)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = voting ~ control + sex, family = binomial, data = gerber)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -0.9220  -0.9012  -0.8290   1.4564   1.5717  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept) -0.635538   0.006511 -97.616  &lt; 2e-16 ***
+## control     -0.200142   0.007364 -27.179  &lt; 2e-16 ***
+## sex         -0.055791   0.007343  -7.597 3.02e-14 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 429238  on 344083  degrees of freedom
+## Residual deviance: 428443  on 344081  degrees of freedom
+## AIC: 428449
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<div id="coefficient-is-negative-reflecting-that-women-are-less-likely-to-vote" class="section level4">
+<h4>Coefficient is negative, reflecting that women are less likely to vote!</h4>
+</div>
+</div>
+<div id="problem-3.4---interaction-terms" class="section level3">
+<h3>Problem 3.4 - Interaction Terms</h3>
+<p>The regression tree calculated the percentage voting exactly for every one of the four possibilities (Man, Not Control), (Man, Control), (Woman, Not Control), (Woman, Control).</p>
+<p>Logistic regression has attempted to do the same, although it wasn’t able to do as well because it can’t consider exactly the joint possibility of being a women and in the control group.</p>
+<p>I can quantify this precisely. By creating the following dataframe (this contains all of the possible values of sex and control), and evaluating our logistic regression using the predict function (where “LogModelSex” is the name of our logistic regression model that uses both control and sex):</p>
+<pre class="r"><code>Possibilities &lt;- data.frame(sex=c(0,0,1,1), control=c(0,1,0,1))
+predict(VotingControlAndSexLog, newdata=Possibilities, type=&quot;response&quot;)</code></pre>
+<pre><code>##         1         2         3         4 
+## 0.3462559 0.3024455 0.3337375 0.2908065</code></pre>
+<p>The four values in the results correspond to the four possibilities in the order they are stated above ( (Man, Not Control), (Man, Control), (Woman, Not Control), (Woman, Control) ).</p>
+<p>What is the absolute difference between the tree and the logistic regression for the (Woman, Control) case?</p>
+<p>The answer contains five numbers after the decimal point.</p>
+<pre class="r"><code>abs(0.290456 - 0.2908065)</code></pre>
+<pre><code>## [1] 0.0003505</code></pre>
+<pre class="r"><code>round(0.0003505, digits = 5)</code></pre>
+<pre><code>## [1] 0.00035</code></pre>
+</div>
+<div id="problem-3.5---interaction-terms" class="section level3">
+<h3>Problem 3.5 - Interaction Terms</h3>
+<p>So the difference is not too big for this dataset, but it’s there. I’m going to add a new term to our logistic regression now, that is the combination of the “sex” and “control” variables - so if this new variable is 1, that means the person is a woman AND in the control group.</p>
+<pre class="r"><code>LogModel2 &lt;- glm(voting ~ sex + control + sex:control, 
+                 data = gerber, family = &quot;binomial&quot;)</code></pre>
+<p>How do I interpret the coefficient for the new variable in isolation? That is, how does it relate to the dependent variable?</p>
+<pre class="r"><code>summary(LogModel2)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = voting ~ sex + control + sex:control, family = &quot;binomial&quot;, 
+##     data = gerber)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -0.9213  -0.9019  -0.8284   1.4573   1.5724  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept) -0.637471   0.007603 -83.843  &lt; 2e-16 ***
+## sex         -0.051888   0.010801  -4.804 1.55e-06 ***
+## control     -0.196553   0.010356 -18.980  &lt; 2e-16 ***
+## sex:control -0.007259   0.014729  -0.493    0.622    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 429238  on 344083  degrees of freedom
+## Residual deviance: 428442  on 344080  degrees of freedom
+## AIC: 428450
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<div id="if-a-person-is-a-woman-and-in-the-control-group-the-chance-that-she-voted-goes-down." class="section level4">
+<h4>If a person is a woman and in the control group, the chance that she voted goes down.</h4>
+</div>
+</div>
+<div id="problem-3.6---interaction-terms" class="section level3">
+<h3>Problem 3.6 - Interaction Terms</h3>
+<p>Run the same code as before to calculate the average for each group:</p>
+<pre class="r"><code>predict(LogModel2, newdata=Possibilities, type=&quot;response&quot;)</code></pre>
+<pre><code>##         1         2         3         4 
+## 0.3458183 0.3027947 0.3341757 0.2904558</code></pre>
+<p>Now, what is the difference between the logistic regression model and the CART model for the (Woman, Control) case?</p>
+<p>Again, our answer has five numbers after the decimal point.</p>
+<pre class="r"><code>abs(0.290456 - 0.2904558)</code></pre>
+<pre><code>## [1] 2e-07</code></pre>
+<pre class="r"><code>round(2e-07, digits = 5)</code></pre>
+<pre><code>## [1] 0</code></pre>
+</div>
+<div id="conclusion---interaction-terms" class="section level3">
+<h3>Conclusion - Interaction Terms</h3>
+<p>This example has shown that trees can capture nonlinear relationships that logistic regression cannot, but that we can get around this sometimes by using variables that are the combination of two variables.</p>
+<p>Should we always include all possible interaction terms of the independent variables when building a logistic regression model?
+#### No (because of overfitting)</p>
+</div>

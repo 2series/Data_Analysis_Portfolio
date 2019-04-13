@@ -1,0 +1,507 @@
+---
+title: "Forecasting U.S. Federal Reserve Interest Rate Hikes"
+author: "Rihad Variawa"
+date: "2019-04-11"
+output: html_document
+summary: 'Predict when the Fed will raise interest rates'
+header:
+  image: 'headers/int.jpg'
+---
+
+
+
+<p>The federal funds rate is the key interest rate that the U.S. Federal Reserve uses to influence economic growth. The Federal Open Market Committee meets regularly to decide whether to increase, decrease, or maintain the target interest rate. Their choice has important ramifications that cascade through the economy, so the announcement of the interest rates is eagerly awaited each month.</p>
+<p>In this analysis, I’ll use analytics to try to predict when the Fed will raise interest rates. I’ll look at monthly economic and political data dating back to the mid-1960’s. In this analysis, the dependent variable will be the binary outcome variable RaisedFedFunds, which takes value 1 if the federal funds rate was increased that month and 0 if it was lowered or stayed the same. For each month, the file federalFundsRate.csv.xz contains the following independent variables:</p>
+<ul>
+<li>Date: The date the change was announced.</li>
+<li>Chairman: The name of the Federal Reserve Chairman at the time the change was announced.</li>
+<li>PreviousRate: The federal funds rate in the prior month.</li>
+<li>Streak: The current streak of raising or not raising the rate, e.g. +8 indicates the rate has been increased 8 months in a row, whereas -3 indicates the rate has been lowered or stayed the same for 3 months in a row.</li>
+<li>GDP: The U.S. Gross Domestic Product, in Billions of Chained 2009 US Dollars.</li>
+<li>Unemployment: The unemployment rate in the U.S.</li>
+<li>CPI: The Consumer Price Index, an indicator of inflation, in the U.S.</li>
+<li>HomeownershipRate: The rate of homeownership in the U.S.</li>
+<li>DebtAsPctGDP: The U.S. national debt as a percentage of GDP</li>
+<li>DemocraticPres: Whether the sitting U.S. President is a Democrat (DemocraticPres=1) or a Republican (DemocraticPres=0)</li>
+<li>MonthsUntilElection: The number of remaining months until the next U.S. presidential election.</li>
+</ul>
+<div id="problem-1---loading-the-data" class="section level3">
+<h3>Problem 1 - Loading the Data</h3>
+<p>Use the read.csv function to load the contents of federalFundsRate.csv.xz file into a dataframe called fedFunds, using stringsAsFactors=FALSE.</p>
+<p>What proportion of months did the Fed raise the interest rate?</p>
+<pre class="r"><code>fedFunds &lt;- read.csv(&quot;federalFundsRate.csv.xz&quot;)
+str(fedFunds)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    585 obs. of  12 variables:
+##  $ Date               : Factor w/ 585 levels &quot;1966-02-01&quot;,&quot;1966-03-01&quot;,..: 1 2 3 4 5 6 7 8 9 10 ...
+##  $ Chairman           : Factor w/ 8 levels &quot;Bernanke, Ben&quot;,..: 4 4 4 4 4 4 4 4 4 4 ...
+##  $ PreviousRate       : num  4.42 4.6 4.65 4.67 4.9 5.17 5.3 5.53 5.4 5.53 ...
+##  $ Streak             : int  4 5 6 7 8 9 10 11 -1 1 ...
+##  $ GDP                : num  4202 4202 4202 4219 4219 ...
+##  $ Unemployment       : num  4 3.8 3.8 3.8 3.9 3.8 3.8 3.8 3.7 3.7 ...
+##  $ CPI                : num  31.9 32.1 32.2 32.3 32.4 ...
+##  $ HomeownershipRate  : num  63.5 63.5 63.5 63.2 63.2 63.2 63.3 63.3 63.3 63.8 ...
+##  $ DebtAsPctGDP       : num  40.3 4201.9 4201.9 39.2 4219.1 ...
+##  $ DemocraticPres     : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ MonthsUntilElection: int  33 32 31 30 29 28 27 26 25 24 ...
+##  $ RaisedFedFunds     : int  1 1 1 1 1 1 1 0 1 1 ...</code></pre>
+<pre class="r"><code>summary(fedFunds)</code></pre>
+<pre><code>##          Date                   Chairman    PreviousRate   
+##  1966-02-01:  1   Greenspan, Alan   :221   Min.   : 0.070  
+##  1966-03-01:  1   Bernanke, Ben     : 96   1st Qu.: 3.290  
+##  1966-04-01:  1   Burns, Arthur     : 96   Median : 5.390  
+##  1966-05-01:  1   Volcker, Paul     : 96   Mean   : 5.651  
+##  1966-06-01:  1   Martin, William M.: 48   3rd Qu.: 7.880  
+##  1966-07-01:  1   Miller, G. William: 17   Max.   :19.100  
+##  (Other)   :579   (Other)           : 11                   
+##      Streak             GDP         Unemployment         CPI        
+##  Min.   :-16.000   Min.   : 4202   Min.   : 3.400   Min.   : 31.88  
+##  1st Qu.: -2.000   1st Qu.: 6039   1st Qu.: 5.000   1st Qu.: 63.40  
+##  Median :  1.000   Median : 8907   Median : 5.900   Median :129.10  
+##  Mean   :  1.094   Mean   : 9450   Mean   : 6.181   Mean   :127.71  
+##  3rd Qu.:  3.000   3rd Qu.:12956   3rd Qu.: 7.300   3rd Qu.:180.00  
+##  Max.   : 27.000   Max.   :16206   Max.   :10.800   Max.   :237.63  
+##                                                                     
+##  HomeownershipRate  DebtAsPctGDP      DemocraticPres   MonthsUntilElection
+##  Min.   :63.20     Min.   :   30.60   Min.   :0.0000   Min.   : 0.00      
+##  1st Qu.:64.20     1st Qu.:   62.35   1st Qu.:0.0000   1st Qu.:12.00      
+##  Median :64.80     Median : 6039.16   Median :0.0000   Median :24.00      
+##  Mean   :65.41     Mean   : 6317.32   Mean   :0.4256   Mean   :23.58      
+##  3rd Qu.:66.50     3rd Qu.:10529.38   3rd Qu.:1.0000   3rd Qu.:35.00      
+##  Max.   :69.20     Max.   :16205.59   Max.   :1.0000   Max.   :47.00      
+##                                                                           
+##  RaisedFedFunds  
+##  Min.   :0.0000  
+##  1st Qu.:0.0000  
+##  Median :1.0000  
+##  Mean   :0.5026  
+##  3rd Qu.:1.0000  
+##  Max.   :1.0000  
+## </code></pre>
+<pre class="r"><code>table(fedFunds$RaisedFedFunds)</code></pre>
+<pre><code>## 
+##   0   1 
+## 291 294</code></pre>
+<pre class="r"><code>294 / (291 + 294)</code></pre>
+<pre><code>## [1] 0.5025641</code></pre>
+</div>
+<div id="problem-2---the-longest-serving-fed-chair" class="section level3">
+<h3>Problem 2 - The Longest-Serving Fed Chair</h3>
+<p>Which Fed Reserve Chair has presided over the most interest rate decisions?</p>
+<pre class="r"><code>table(fedFunds$Chairman)</code></pre>
+<pre><code>## 
+##      Bernanke, Ben      Burns, Arthur    Greenspan, Alan 
+##                 96                 96                221 
+## Martin, William M. Miller, G. William                N/A 
+##                 48                 17                  2 
+##      Volcker, Paul      Yellen, Janet 
+##                 96                  9</code></pre>
+<div id="greenspan-alan" class="section level4">
+<h4>Greenspan, Alan</h4>
+</div>
+</div>
+<div id="problem-3---converting-variables-to-factors" class="section level3">
+<h3>Problem 3 - Converting Variables to Factors</h3>
+<p>Convert the following variables to factors using the as.factor function:</p>
+<ul>
+<li>Chairman</li>
+<li>DemocraticPres</li>
+<li>RaisedFedFunds</li>
+</ul>
+<p>Which of the following methods requires the dependent variables be stored as a factor variable when training a model for classification?</p>
+<pre class="r"><code>str(fedFunds)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    585 obs. of  12 variables:
+##  $ Date               : Factor w/ 585 levels &quot;1966-02-01&quot;,&quot;1966-03-01&quot;,..: 1 2 3 4 5 6 7 8 9 10 ...
+##  $ Chairman           : Factor w/ 8 levels &quot;Bernanke, Ben&quot;,..: 4 4 4 4 4 4 4 4 4 4 ...
+##  $ PreviousRate       : num  4.42 4.6 4.65 4.67 4.9 5.17 5.3 5.53 5.4 5.53 ...
+##  $ Streak             : int  4 5 6 7 8 9 10 11 -1 1 ...
+##  $ GDP                : num  4202 4202 4202 4219 4219 ...
+##  $ Unemployment       : num  4 3.8 3.8 3.8 3.9 3.8 3.8 3.8 3.7 3.7 ...
+##  $ CPI                : num  31.9 32.1 32.2 32.3 32.4 ...
+##  $ HomeownershipRate  : num  63.5 63.5 63.5 63.2 63.2 63.2 63.3 63.3 63.3 63.8 ...
+##  $ DebtAsPctGDP       : num  40.3 4201.9 4201.9 39.2 4219.1 ...
+##  $ DemocraticPres     : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ MonthsUntilElection: int  33 32 31 30 29 28 27 26 25 24 ...
+##  $ RaisedFedFunds     : int  1 1 1 1 1 1 1 0 1 1 ...</code></pre>
+<pre class="r"><code>fedFunds$Chairman &lt;- as.factor(fedFunds$Chairman)
+fedFunds$DemocraticPres &lt;- as.factor(fedFunds$DemocraticPres)
+fedFunds$RaisedFedFunds &lt;- as.factor(fedFunds$RaisedFedFunds)
+str(fedFunds)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    585 obs. of  12 variables:
+##  $ Date               : Factor w/ 585 levels &quot;1966-02-01&quot;,&quot;1966-03-01&quot;,..: 1 2 3 4 5 6 7 8 9 10 ...
+##  $ Chairman           : Factor w/ 8 levels &quot;Bernanke, Ben&quot;,..: 4 4 4 4 4 4 4 4 4 4 ...
+##  $ PreviousRate       : num  4.42 4.6 4.65 4.67 4.9 5.17 5.3 5.53 5.4 5.53 ...
+##  $ Streak             : int  4 5 6 7 8 9 10 11 -1 1 ...
+##  $ GDP                : num  4202 4202 4202 4219 4219 ...
+##  $ Unemployment       : num  4 3.8 3.8 3.8 3.9 3.8 3.8 3.8 3.7 3.7 ...
+##  $ CPI                : num  31.9 32.1 32.2 32.3 32.4 ...
+##  $ HomeownershipRate  : num  63.5 63.5 63.5 63.2 63.2 63.2 63.3 63.3 63.3 63.8 ...
+##  $ DebtAsPctGDP       : num  40.3 4201.9 4201.9 39.2 4219.1 ...
+##  $ DemocraticPres     : Factor w/ 2 levels &quot;0&quot;,&quot;1&quot;: 2 2 2 2 2 2 2 2 2 2 ...
+##  $ MonthsUntilElection: int  33 32 31 30 29 28 27 26 25 24 ...
+##  $ RaisedFedFunds     : Factor w/ 2 levels &quot;0&quot;,&quot;1&quot;: 2 2 2 2 2 2 2 1 2 2 ...</code></pre>
+<div id="random-forest-randomforest" class="section level4">
+<h4>Random forest (randomForest)</h4>
+</div>
+</div>
+<div id="problem-4---splitting-the-dataframe-into-a-training-testing-set" class="section level3">
+<h3>Problem 4 - Splitting the dataframe into a Training &amp; Testing Set</h3>
+<p>Obtain a random training/testing set split with:</p>
+<pre class="r"><code>set.seed(201)
+library(caTools)
+spl &lt;- sample.split(fedFunds$RaisedFedFunds, 0.7)</code></pre>
+<p>Split months into a training dataframe called “training” using the observations for which spl is TRUE and a testing dataframe called “testing” using the observations for which spl is FALSE.</p>
+<pre class="r"><code>training &lt;- subset(fedFunds, spl == TRUE)
+testing &lt;- subset(fedFunds, spl == FALSE)</code></pre>
+<p>Why do we use the sample.split() function to split into a training and testing set?
+#### It balances the dependent variable between the training and testing sets</p>
+</div>
+<div id="problem-5---training-a-logistic-regression-model" class="section level3">
+<h3>Problem 5 - Training a Logistic Regression Model</h3>
+<p>Train a logistic regression model using independent variables “PreviousRate”, “Streak”, “Unemployment”, “HomeownershipRate”, “DemocraticPres”, and “MonthsUntilElection”, using the training set to obtain the model.</p>
+<pre class="r"><code>LogIntRate &lt;- glm(RaisedFedFunds ~ PreviousRate + Streak + Unemployment +
+                      HomeownershipRate + DemocraticPres + MonthsUntilElection, 
+                  data = training, family = binomial)</code></pre>
+<p>Which of the following characteristics is the most statistically significant associated with an increased chance of the fed funds rate being raised?</p>
+<pre class="r"><code>summary(LogIntRate)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = RaisedFedFunds ~ PreviousRate + Streak + Unemployment + 
+##     HomeownershipRate + DemocraticPres + MonthsUntilElection, 
+##     family = binomial, data = training)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -2.8177  -1.0121   0.2301   1.0491   2.5297  
+## 
+## Coefficients:
+##                      Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)          9.121012   5.155774   1.769   0.0769 .  
+## PreviousRate        -0.003427   0.032350  -0.106   0.9156    
+## Streak               0.157658   0.025147   6.270 3.62e-10 ***
+## Unemployment        -0.047449   0.065438  -0.725   0.4684    
+## HomeownershipRate   -0.136451   0.076872  -1.775   0.0759 .  
+## DemocraticPres1      0.347829   0.233200   1.492   0.1358    
+## MonthsUntilElection -0.006931   0.007678  -0.903   0.3666    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 568.37  on 409  degrees of freedom
+## Residual deviance: 492.69  on 403  degrees of freedom
+## AIC: 506.69
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<div id="a-longer-consecutive-streak-of-months-in-which-the-fed-funds-rate-was-raised" class="section level4">
+<h4>A longer consecutive STREAK of months in which the fed funds rate was raised</h4>
+</div>
+</div>
+<div id="problem-6---predicting-using-a-logistic-regression-model" class="section level3">
+<h3>Problem 6 - Predicting Using a Logistic Regression Model</h3>
+<p>Imagine you are an analyst at a bank and your manager has asked you to predict whether the fed funds rate will be raised next month.</p>
+<p>You know that the rate has been lowered for 3 straight months (Streak = -3) and that the previous month’s rate was 1.7%.</p>
+<p>The unemployment rate is 5.1% and the homeownership rate is 65.3%.</p>
+<p>The current U.S. president is a Republican and the next election will be held in 18 months. According to the logistic regression model you built in Problem 5.</p>
+<p>What is the predicted probability that the interest rate will be raised?</p>
+<div id="previousrate-0.003427-streak0.157658-unemployment-0.047449-homeownershiprate-0.136451-democraticpres10.347829-monthsuntilelection-0.006931" class="section level4">
+<h4>9.121012 + PreviousRate<em>(-0.003427) + Streak</em>0.157658 + Unemployment<em>(-0.047449) + HomeownershipRate</em>(-0.136451) + DemocraticPres1<em>0.347829 + MonthsUntilElection</em>(-0.006931)</h4>
+<pre class="r"><code>9.121012 + 1.7*(-0.003427) - 3*0.157658 + 
+    5.1*(-0.047449) + 65.3*(-0.136451) + 
+    0*0.347829 + 18*(-0.006931)</code></pre>
+<pre><code>## [1] -0.6347861</code></pre>
+</div>
+<div id="need-to-plug-it-into-the-logistic-response-function" class="section level4">
+<h4>-0.6347861 ==&gt; Need to plug it into the logistic response function</h4>
+<pre class="r"><code>problem6 &lt;- training[1, ]
+problem6$PreviousRate &lt;- 1.7
+problem6$Streak &lt;- -3
+problem6$Unemployment &lt;- 5.1
+problem6$HomeownershipRate &lt;- 65.3
+problem6$DemocraticPres &lt;- as.factor(0)
+problem6$MonthsUntilElection &lt;- 18
+problem6</code></pre>
+<pre><code>##         Date           Chairman PreviousRate Streak      GDP Unemployment
+## 1 1966-02-01 Martin, William M.          1.7     -3 4201.891          5.1
+##     CPI HomeownershipRate DebtAsPctGDP DemocraticPres MonthsUntilElection
+## 1 31.88              65.3     40.26076              0                  18
+##   RaisedFedFunds
+## 1              1</code></pre>
+<pre class="r"><code>str(problem6)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    1 obs. of  12 variables:
+##  $ Date               : Factor w/ 585 levels &quot;1966-02-01&quot;,&quot;1966-03-01&quot;,..: 1
+##  $ Chairman           : Factor w/ 8 levels &quot;Bernanke, Ben&quot;,..: 4
+##  $ PreviousRate       : num 1.7
+##  $ Streak             : num -3
+##  $ GDP                : num 4202
+##  $ Unemployment       : num 5.1
+##  $ CPI                : num 31.9
+##  $ HomeownershipRate  : num 65.3
+##  $ DebtAsPctGDP       : num 40.3
+##  $ DemocraticPres     : Factor w/ 1 level &quot;0&quot;: 1
+##  $ MonthsUntilElection: num 18
+##  $ RaisedFedFunds     : Factor w/ 2 levels &quot;0&quot;,&quot;1&quot;: 2</code></pre>
+<pre class="r"><code>problem6PredProb &lt;- predict(LogIntRate, newdata = problem6, type = &quot;response&quot;)
+problem6PredProb</code></pre>
+<pre><code>##         1 
+## 0.3464297</code></pre>
+</div>
+</div>
+<div id="problem-7---interpreting-model-coefficients" class="section level3">
+<h3>Problem 7 - Interpreting Model Coefficients</h3>
+<p>What is the meaning of the coefficient labeled “DemocraticPres1” in the logistic regression summary output?</p>
+<pre class="r"><code>summary(LogIntRate)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = RaisedFedFunds ~ PreviousRate + Streak + Unemployment + 
+##     HomeownershipRate + DemocraticPres + MonthsUntilElection, 
+##     family = binomial, data = training)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -2.8177  -1.0121   0.2301   1.0491   2.5297  
+## 
+## Coefficients:
+##                      Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)          9.121012   5.155774   1.769   0.0769 .  
+## PreviousRate        -0.003427   0.032350  -0.106   0.9156    
+## Streak               0.157658   0.025147   6.270 3.62e-10 ***
+## Unemployment        -0.047449   0.065438  -0.725   0.4684    
+## HomeownershipRate   -0.136451   0.076872  -1.775   0.0759 .  
+## DemocraticPres1      0.347829   0.233200   1.492   0.1358    
+## MonthsUntilElection -0.006931   0.007678  -0.903   0.3666    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 568.37  on 409  degrees of freedom
+## Residual deviance: 492.69  on 403  degrees of freedom
+## AIC: 506.69
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<div id="when-the-president-is-democratic-the-odds-of-the-fed-funds-rate-increasing-are-41.6-higher-than-in-an-otherise-identical-month-i.e.identical-among-the-variables-in-the-model.-explanation" class="section level4">
+<h4>When the president is Democratic, the odds of the fed funds rate increasing are 41.6% higher than in an otherise identical month (i.e. identical among the variables in the model). EXPLANATION:</h4>
+<p>The coefficients of the model are the log odds associated with that variable; so we see that the odds of being sold are exp(0.347829)=1.41599 those of an otherwise identical month. This means the month is predicted to have 41.6% higher odds of being sold.</p>
+</div>
+</div>
+<div id="problem-8---obtaining-test-set-predictions" class="section level3">
+<h3>Problem 8 - Obtaining Test Set Predictions</h3>
+<p>Using our logistic regression model, obtain predictions on the test-set. Then, using a probability threshold of 0.5, create a confusion matrix for the test-set.</p>
+<p>On how many test-set observations does our logistic regression model make a different prediction than the prediction the naive baseline model would make?</p>
+<p>(Remember that the naive baseline model we use always predicts the most frequent outcome in the training set for all observations in the test-set.)</p>
+<pre class="r"><code>str(testing)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    175 obs. of  12 variables:
+##  $ Date               : Factor w/ 585 levels &quot;1966-02-01&quot;,&quot;1966-03-01&quot;,..: 14 15 16 18 19 31 32 37 38 39 ...
+##  $ Chairman           : Factor w/ 8 levels &quot;Bernanke, Ben&quot;,..: 4 4 4 4 4 4 4 4 4 4 ...
+##  $ PreviousRate       : num  5 4.53 4.05 3.98 3.79 6.02 6.03 6.3 6.61 6.79 ...
+##  $ Streak             : int  1 -1 -2 1 -1 -2 1 2 3 4 ...
+##  $ GDP                : num  4325 4325 4329 4329 4366 ...
+##  $ Unemployment       : num  3.8 3.8 3.8 3.9 3.8 3.7 3.5 3.4 3.4 3.4 ...
+##  $ CPI                : num  33 33 33.1 33.3 33.4 34.9 35 35.7 35.8 36.1 ...
+##  $ HomeownershipRate  : num  63.3 63.3 63.9 63.9 63.8 64.1 64.1 64.1 64.1 64.1 ...
+##  $ DebtAsPctGDP       : num  4324.9 4324.9 37.9 4328.7 38.8 ...
+##  $ DemocraticPres     : Factor w/ 2 levels &quot;0&quot;,&quot;1&quot;: 2 2 2 2 2 2 2 1 1 1 ...
+##  $ MonthsUntilElection: int  20 19 18 16 15 3 2 45 44 43 ...
+##  $ RaisedFedFunds     : Factor w/ 2 levels &quot;0&quot;,&quot;1&quot;: 1 1 1 1 2 2 1 2 2 2 ...</code></pre>
+<pre class="r"><code>PredProb &lt;- predict(LogIntRate, newdata = testing, type = &quot;response&quot;)
+table(testing$RaisedFedFunds, PredProb &gt;= 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    60   27
+##   1    31   57</code></pre>
+<pre class="r"><code>table(training$RaisedFedFunds)</code></pre>
+<pre><code>## 
+##   0   1 
+## 204 206</code></pre>
+<div id="were-predicted-less-than-0.5" class="section level4">
+<h4>91 (60 + 31 were predicted less than 0.5)</h4>
+</div>
+</div>
+<div id="problem-9---computing-test-set-auc" class="section level3">
+<h3>Problem 9 - Computing Test-Set AUC</h3>
+<p>What is the test-set AUC of the logistic regression model?</p>
+<pre class="r"><code>library(ROCR)</code></pre>
+<pre><code>## Loading required package: gplots</code></pre>
+<pre><code>## 
+## Attaching package: &#39;gplots&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:stats&#39;:
+## 
+##     lowess</code></pre>
+<pre class="r"><code>PredTestLogROCR &lt;- prediction(PredProb, testing$RaisedFedFunds)
+performance(PredTestLogROCR, &quot;auc&quot;)@y.values</code></pre>
+<pre><code>## [[1]]
+## [1] 0.704023</code></pre>
+</div>
+<div id="problem-10---interpreting-auc" class="section level3">
+<h3>Problem 10 - Interpreting AUC</h3>
+<p>What is the meaning of the AUC?
+#### The proportion of the time the model can differentiate between a randomly selected month during which the fed funds were raised and a randomly selected month during which the federal funds were not raised.</p>
+</div>
+<div id="problem-11---roc-curves" class="section level3">
+<h3>Problem 11 - ROC Curves</h3>
+<p>Which logistic regression threshold is associated with the upper-right corner of the ROC plot (true positive rate 1 and false positive rate 1)?
+#### 0</p>
+<div id="explanation" class="section level4">
+<h4>EXPLANATION</h4>
+<p>A model with threshold 0 predicts 1 for all observations, yielding a 100% true positive rate and a 100% false positive rate.</p>
+</div>
+</div>
+<div id="problem-12---roc-curves" class="section level3">
+<h3>Problem 12 - ROC Curves</h3>
+<p>Plot the colorized ROC curve for the logistic regression model’s performance on the test-set. At roughly which logistic regression cut-off does the model achieve a true positive rate of 85% and a false positive rate of 60%?</p>
+<pre class="r"><code>ROCRperf &lt;- performance(PredTestLogROCR, &quot;tpr&quot;, &quot;fpr&quot;)
+plot(ROCRperf, colorize = TRUE, 
+     print.cutoffs.at = seq(0, 1, by = 0.1), 
+     text.adj = c(-0.2, 1.7))</code></pre>
+<p><img src="/project/interest_forecast/interest_forecast_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+<div id="section" class="section level4">
+<h4>0.37</h4>
+</div>
+</div>
+<div id="problem-13---cross-validation-to-select-parameters" class="section level3">
+<h3>Problem 13 - Cross-Validation to Select Parameters</h3>
+<p>Which of the following best describes how 10-fold cross-validation works when selecting between 2 different parameter values?
+#### 20 models are trained on subsets of the training set and evaluated on a portion of the training set</p>
+</div>
+<div id="problem-14---cross-validation-for-a-cart-model" class="section level3">
+<h3>Problem 14 - Cross-Validation for a CART Model</h3>
+<p>Set the random seed to 201 (even though you have already done so earlier in the problem).</p>
+<p>Then use the caret package and the train function to perform 10-fold cv with the training data set to select the best cp value for a CART model that predicts the dependent variable “RaisedFedFunds” using the independent variables “PreviousRate,” “Streak,” “Unemployment,” “HomeownershipRate,” “DemocraticPres,” and “MonthsUntilElection.” Select the cp value from a grid consisting of the 50 values 0.001, 0.002, …, 0.05.</p>
+<pre class="r"><code>library(caret)</code></pre>
+<pre><code>## Loading required package: lattice</code></pre>
+<pre><code>## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>library(e1071)
+set.seed(201)
+
+# define cross-validation experiment
+numFolds &lt;- trainControl(method = &quot;cv&quot;, number = 10)
+cpGrid &lt;- expand.grid(.cp = seq(0.001, 0.05, 0.001)) </code></pre>
+<p>Define cv experiment</p>
+<pre class="r"><code>numFolds &lt;- trainControl(method = &quot;cv&quot;, number = 10)
+cpGrid &lt;- expand.grid(.cp = seq(0.001, 0.05, 0.001)) </code></pre>
+<p>Perform the cv</p>
+<pre class="r"><code>trainCV &lt;- train(RaisedFedFunds ~ PreviousRate + Streak + Unemployment + 
+                     HomeownershipRate + DemocraticPres + MonthsUntilElection, 
+                 data = training, 
+                 method = &quot;rpart&quot;, 
+                 trControl = numFolds, 
+                 tuneGrid = cpGrid)
+trainCV</code></pre>
+<pre><code>## CART 
+## 
+## 410 samples
+##   6 predictor
+##   2 classes: &#39;0&#39;, &#39;1&#39; 
+## 
+## No pre-processing
+## Resampling: Cross-Validated (10 fold) 
+## Summary of sample sizes: 369, 368, 368, 369, 370, 370, ... 
+## Resampling results across tuning parameters:
+## 
+##   cp     Accuracy   Kappa    
+##   0.001  0.6248461  0.2498288
+##   0.002  0.6366928  0.2737781
+##   0.003  0.6465099  0.2940348
+##   0.004  0.6465099  0.2940348
+##   0.005  0.6465099  0.2940348
+##   0.006  0.6513298  0.3037278
+##   0.007  0.6513298  0.3037278
+##   0.008  0.6488298  0.2987278
+##   0.009  0.6462108  0.2934897
+##   0.010  0.6437718  0.2887290
+##   0.011  0.6532956  0.3075752
+##   0.012  0.6532956  0.3075752
+##   0.013  0.6532956  0.3075752
+##   0.014  0.6386527  0.2782894
+##   0.015  0.6386527  0.2782894
+##   0.016  0.6386527  0.2782894
+##   0.017  0.6287718  0.2585275
+##   0.018  0.6287718  0.2585275
+##   0.019  0.6287718  0.2585275
+##   0.020  0.6385918  0.2780499
+##   0.021  0.6385918  0.2780499
+##   0.022  0.6385918  0.2784431
+##   0.023  0.6385918  0.2784431
+##   0.024  0.6432956  0.2882859
+##   0.025  0.6432956  0.2882859
+##   0.026  0.6605575  0.3228097
+##   0.027  0.6605575  0.3228097
+##   0.028  0.6680575  0.3378097
+##   0.029  0.6680575  0.3378097
+##   0.030  0.6680575  0.3381290
+##   0.031  0.6680575  0.3381290
+##   0.032  0.6680575  0.3381290
+##   0.033  0.6680575  0.3381290
+##   0.034  0.6680575  0.3381290
+##   0.035  0.6680575  0.3381290
+##   0.036  0.6729355  0.3474661
+##   0.037  0.6729355  0.3474661
+##   0.038  0.6729355  0.3474661
+##   0.039  0.6729355  0.3474661
+##   0.040  0.6729355  0.3474661
+##   0.041  0.6729355  0.3474661
+##   0.042  0.6729355  0.3474661
+##   0.043  0.6729355  0.3474661
+##   0.044  0.6729355  0.3474661
+##   0.045  0.6729355  0.3474661
+##   0.046  0.6729355  0.3474661
+##   0.047  0.6729355  0.3474661
+##   0.048  0.6729355  0.3474661
+##   0.049  0.6729355  0.3474661
+##   0.050  0.6729355  0.3474661
+## 
+## Accuracy was used to select the optimal model using the largest value.
+## The final value used for the model was cp = 0.05.</code></pre>
+<p>What cp value maximizes the cv accuracy?
+#### 0.016</p>
+</div>
+<div id="problem-15---train-cart-model" class="section level3">
+<h3>Problem 15 - Train CART Model</h3>
+<p>Create and plot the CART model trained with the parameter identified in Problem 14, again predicting the dependent variable using “PreviousRate”, “Streak”, “Unemployment”, “HomeownershipRate”, “DemocraticPres”, and “MonthsUntilElection”.</p>
+<p>What variable is used as the first (upper-most) split in the tree?</p>
+<pre class="r"><code>library(rpart)
+library(rpart.plot)
+TreeIntRate &lt;- trainCV$finalModel
+prp(TreeIntRate)</code></pre>
+<p><img src="/project/interest_forecast/interest_forecast_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<pre class="r"><code>TreeIntRate</code></pre>
+<pre><code>## n= 410 
+## 
+## node), split, n, loss, yval, (yprob)
+##       * denotes terminal node
+## 
+## 1) root 410 204 1 (0.4975610 0.5024390)  
+##   2) Streak&lt; 2.5 300 115 0 (0.6166667 0.3833333) *
+##   3) Streak&gt;=2.5 110  19 1 (0.1727273 0.8272727) *</code></pre>
+<pre class="r"><code>TreeIntRate2 &lt;- rpart(RaisedFedFunds ~ PreviousRate + Streak + Unemployment + 
+                          HomeownershipRate + DemocraticPres + 
+                          MonthsUntilElection, 
+                      data = training, 
+                      method = &quot;class&quot;, 
+                      cp = 0.016)
+prp(TreeIntRate2)</code></pre>
+<p><img src="/project/interest_forecast/interest_forecast_files/figure-html/unnamed-chunk-17-2.png" width="672" /></p>
+<div id="streak" class="section level4">
+<h4>Streak</h4>
+</div>
+</div>
+<div id="problem-16---predicting-using-a-cart-model" class="section level3">
+<h3>Problem 16 - Predicting Using a CART Model</h3>
+<p>If you were to use the CART model you created in Problem 15 to explore the question asked of the analyst in Problem 6, what would you predict for next month?</p>
+<p>Remember: The rate has been lowered for 3 straight months (Streak = -3). The previous month’s rate was 1.7%. The unemployment rate is 5.1%. The homeownership rate is 65.3%. The current U.S. president is a Republican and the next election will be held in 18 months.
+#### The Fed will not raise the federal funds rate. The Fed will not raise the fed funds rate.</p>
+</div>
+<div id="problem-17---test-set-accuracy-for-cart-model" class="section level3">
+<h3>Problem 17 - Test-Set Accuracy for CART Model</h3>
+<p>Using the CART model you created in Problem 15, obtain predictions on the test-set (using the parameter type=“class” with the predict function).</p>
+<p>Then, create a confusion matrix for the test-set.</p>
+<pre class="r"><code>PredClassTree &lt;- predict(TreeIntRate2, newdata = testing, type = &quot;class&quot;)</code></pre>
+<p>What is the accuracy of your CART model?</p>
+<pre class="r"><code>table(PredClassTree, testing$RaisedFedFunds)</code></pre>
+<pre><code>##              
+## PredClassTree  0  1
+##             0 64 40
+##             1 23 48</code></pre>
+<pre class="r"><code>(64 + 48) / nrow(testing)</code></pre>
+<pre><code>## [1] 0.64</code></pre>
+</div>

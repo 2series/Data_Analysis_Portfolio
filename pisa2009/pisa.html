@@ -1,0 +1,624 @@
+---
+title: "Reading Test Scores"
+author: "Rihad Variawa"
+date: "2019-04-06"
+output: html_document
+summary: 'Predict reading scores of students in the 2009 PISA exam'
+header:
+  image: 'headers/rdg.jpg'
+---
+
+
+
+<p>The Programme for International Student Assessment (PISA) is a test given every three years to 15-year-old students from around the world to evaluate their performance in <strong>mathematics, reading, and science.</strong></p>
+<p>The test provides a quantitative way to compare the performance of students from different parts of the world.</p>
+<p>In this analysis, I’ll predict the reading scores of students from the USA on the 2009 PISA exam.</p>
+<p>The datasets contain information about the demographics and schools for American students taking the exam, derived from 2009 PISA Public-Use Data Files distributed by the United States National Center for Education Statistics (NCES). While the datasets are not supposed to contain identifying information about students taking the test, <strong>by using the data we are bound by the NCES data use agreement, which prohibits any attempt to determine the identity of any student in the datasets.</strong></p>
+<p>Each row in the datasets represents one student taking the exam. The datasets have the following variables:</p>
+<ul>
+<li>grade: The grade in school of the student (most 15-year-olds in America are in 10th grade)</li>
+<li>male: Whether the student is male (1/0)</li>
+<li>raceeth: The race/ethnicity composite of the student</li>
+<li>preschool: Whether the student attended preschool (1/0)</li>
+<li>expectBachelors: Whether the student expects to obtain a bachelor’s degree (1/0)</li>
+<li>motherHS: Whether the student’s mother completed high school (1/0)</li>
+<li>motherBachelors: Whether the student’s mother obtained a bachelor’s degree (1/0)</li>
+<li>motherWork: Whether the student’s mother has part-time or full-time work (1/0)</li>
+<li>fatherHS: Whether the student’s father completed high school (1/0)</li>
+<li>fatherBachelors: Whether the student’s father obtained a bachelor’s degree (1/0)</li>
+<li>fatherWork: Whether the student’s father has part-time or full-time work (1/0)</li>
+<li>selfBornUS: Whether the student was born in the United States of America (1/0)</li>
+<li>motherBornUS: Whether the student’s mother was born in the United States of America (1/0)</li>
+<li>fatherBornUS: Whether the student’s father was born in the United States of America (1/0)</li>
+<li>englishAtHome: Whether the student speaks English at home (1/0)</li>
+<li>computerForSchoolwork: Whether the student has access to a computer for schoolwork (1/0)</li>
+<li>read30MinsADay: Whether the student reads for pleasure for 30 minutes/day (1/0)</li>
+<li>minutesPerWeekEnglish: The number of minutes per week the student spend in English class</li>
+<li>studentsInEnglish: The number of students in this student’s English class at school</li>
+<li>schoolHasLibrary: Whether this student’s school has a library (1/0)</li>
+<li>publicSchool: Whether this student attends a public school (1/0)</li>
+<li>urban: Whether this student’s school is in an urban area (1/0)</li>
+<li>schoolSize: The number of students in this student’s school</li>
+<li>readingScore: The student’s reading score, on a 1000-point scale</li>
+</ul>
+<div id="problem-1.1---dataset-size" class="section level3">
+<h3>Problem 1.1 - Dataset size</h3>
+<p>Load the training and testing sets using the read.csv() function, and save them as variables with the names pisaTrain and pisaTest.</p>
+<pre class="r"><code>pisaTrain &lt;- read.csv(&quot;pisa2009train.csv&quot;)
+pisaTest &lt;- read.csv(&quot;pisa2009test.csv&quot;)
+str(pisaTrain)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    3663 obs. of  24 variables:
+##  $ grade                : int  11 11 9 10 10 10 10 10 9 10 ...
+##  $ male                 : int  1 1 1 0 1 1 0 0 0 1 ...
+##  $ raceeth              : Factor w/ 7 levels &quot;American Indian/Alaska Native&quot;,..: NA 7 7 3 4 3 2 7 7 5 ...
+##  $ preschool            : int  NA 0 1 1 1 1 0 1 1 1 ...
+##  $ expectBachelors      : int  0 0 1 1 0 1 1 1 0 1 ...
+##  $ motherHS             : int  NA 1 1 0 1 NA 1 1 1 1 ...
+##  $ motherBachelors      : int  NA 1 1 0 0 NA 0 0 NA 1 ...
+##  $ motherWork           : int  1 1 1 1 1 1 1 0 1 1 ...
+##  $ fatherHS             : int  NA 1 1 1 1 1 NA 1 0 0 ...
+##  $ fatherBachelors      : int  NA 0 NA 0 0 0 NA 0 NA 0 ...
+##  $ fatherWork           : int  1 1 1 1 0 1 NA 1 1 1 ...
+##  $ selfBornUS           : int  1 1 1 1 1 1 0 1 1 1 ...
+##  $ motherBornUS         : int  0 1 1 1 1 1 1 1 1 1 ...
+##  $ fatherBornUS         : int  0 1 1 1 0 1 NA 1 1 1 ...
+##  $ englishAtHome        : int  0 1 1 1 1 1 1 1 1 1 ...
+##  $ computerForSchoolwork: int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ read30MinsADay       : int  0 1 0 1 1 0 0 1 0 0 ...
+##  $ minutesPerWeekEnglish: int  225 450 250 200 250 300 250 300 378 294 ...
+##  $ studentsInEnglish    : int  NA 25 28 23 35 20 28 30 20 24 ...
+##  $ schoolHasLibrary     : int  1 1 1 1 1 1 1 1 0 1 ...
+##  $ publicSchool         : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ urban                : int  1 0 0 1 1 0 1 0 1 0 ...
+##  $ schoolSize           : int  673 1173 1233 2640 1095 227 2080 1913 502 899 ...
+##  $ readingScore         : num  476 575 555 458 614 ...</code></pre>
+<pre class="r"><code>summary(pisaTrain)</code></pre>
+<pre><code>##      grade            male                      raceeth    
+##  Min.   : 8.00   Min.   :0.0000   White             :2015  
+##  1st Qu.:10.00   1st Qu.:0.0000   Hispanic          : 834  
+##  Median :10.00   Median :1.0000   Black             : 444  
+##  Mean   :10.09   Mean   :0.5111   Asian             : 143  
+##  3rd Qu.:10.00   3rd Qu.:1.0000   More than one race: 124  
+##  Max.   :12.00   Max.   :1.0000   (Other)           :  68  
+##                                   NA&#39;s              :  35  
+##    preschool      expectBachelors     motherHS    motherBachelors 
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.00   Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:1.00   1st Qu.:0.0000  
+##  Median :1.0000   Median :1.0000   Median :1.00   Median :0.0000  
+##  Mean   :0.7228   Mean   :0.7859   Mean   :0.88   Mean   :0.3481  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.00   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.00   Max.   :1.0000  
+##  NA&#39;s   :56       NA&#39;s   :62       NA&#39;s   :97     NA&#39;s   :397     
+##    motherWork        fatherHS      fatherBachelors    fatherWork    
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:0.0000   1st Qu.:1.0000  
+##  Median :1.0000   Median :1.0000   Median :0.0000   Median :1.0000  
+##  Mean   :0.7345   Mean   :0.8593   Mean   :0.3319   Mean   :0.8531  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  NA&#39;s   :93       NA&#39;s   :245      NA&#39;s   :569      NA&#39;s   :233     
+##    selfBornUS      motherBornUS     fatherBornUS    englishAtHome   
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:1.0000   1st Qu.:1.0000   1st Qu.:1.0000   1st Qu.:1.0000  
+##  Median :1.0000   Median :1.0000   Median :1.0000   Median :1.0000  
+##  Mean   :0.9313   Mean   :0.7725   Mean   :0.7668   Mean   :0.8717  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  NA&#39;s   :69       NA&#39;s   :71       NA&#39;s   :113      NA&#39;s   :71      
+##  computerForSchoolwork read30MinsADay   minutesPerWeekEnglish
+##  Min.   :0.0000        Min.   :0.0000   Min.   :   0.0       
+##  1st Qu.:1.0000        1st Qu.:0.0000   1st Qu.: 225.0       
+##  Median :1.0000        Median :0.0000   Median : 250.0       
+##  Mean   :0.8994        Mean   :0.2899   Mean   : 266.2       
+##  3rd Qu.:1.0000        3rd Qu.:1.0000   3rd Qu.: 300.0       
+##  Max.   :1.0000        Max.   :1.0000   Max.   :2400.0       
+##  NA&#39;s   :65            NA&#39;s   :34       NA&#39;s   :186          
+##  studentsInEnglish schoolHasLibrary  publicSchool        urban       
+##  Min.   : 1.0      Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:20.0      1st Qu.:1.0000   1st Qu.:1.0000   1st Qu.:0.0000  
+##  Median :25.0      Median :1.0000   Median :1.0000   Median :0.0000  
+##  Mean   :24.5      Mean   :0.9676   Mean   :0.9339   Mean   :0.3849  
+##  3rd Qu.:30.0      3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :75.0      Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  NA&#39;s   :249       NA&#39;s   :143                                       
+##    schoolSize    readingScore  
+##  Min.   : 100   Min.   :168.6  
+##  1st Qu.: 712   1st Qu.:431.7  
+##  Median :1212   Median :499.7  
+##  Mean   :1369   Mean   :497.9  
+##  3rd Qu.:1900   3rd Qu.:566.2  
+##  Max.   :6694   Max.   :746.0  
+##  NA&#39;s   :162</code></pre>
+<p>Number of students in the training set is 3663</p>
+</div>
+<div id="problem-1.2---summarizing-the-dataset" class="section level3">
+<h3>Problem 1.2 - Summarizing the dataset</h3>
+<p>Using tapply() on pisaTrain, what is the average reading test score of males?</p>
+<pre class="r"><code>tapply(pisaTrain$readingScore, pisaTrain$male, mean)</code></pre>
+<pre><code>##        0        1 
+## 512.9406 483.5325</code></pre>
+<p>Males reading score, 483.5325 and Females reading score is 512.9406</p>
+</div>
+<div id="problem-1.3---locating-missing-values" class="section level3">
+<h3>Problem 1.3 - Locating missing values</h3>
+<p>Which variables are missing data in at least one observation in the training set?</p>
+<pre class="r"><code>summary(pisaTrain)</code></pre>
+<pre><code>##      grade            male                      raceeth    
+##  Min.   : 8.00   Min.   :0.0000   White             :2015  
+##  1st Qu.:10.00   1st Qu.:0.0000   Hispanic          : 834  
+##  Median :10.00   Median :1.0000   Black             : 444  
+##  Mean   :10.09   Mean   :0.5111   Asian             : 143  
+##  3rd Qu.:10.00   3rd Qu.:1.0000   More than one race: 124  
+##  Max.   :12.00   Max.   :1.0000   (Other)           :  68  
+##                                   NA&#39;s              :  35  
+##    preschool      expectBachelors     motherHS    motherBachelors 
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.00   Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:1.00   1st Qu.:0.0000  
+##  Median :1.0000   Median :1.0000   Median :1.00   Median :0.0000  
+##  Mean   :0.7228   Mean   :0.7859   Mean   :0.88   Mean   :0.3481  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.00   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.00   Max.   :1.0000  
+##  NA&#39;s   :56       NA&#39;s   :62       NA&#39;s   :97     NA&#39;s   :397     
+##    motherWork        fatherHS      fatherBachelors    fatherWork    
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:0.0000   1st Qu.:1.0000   1st Qu.:0.0000   1st Qu.:1.0000  
+##  Median :1.0000   Median :1.0000   Median :0.0000   Median :1.0000  
+##  Mean   :0.7345   Mean   :0.8593   Mean   :0.3319   Mean   :0.8531  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  NA&#39;s   :93       NA&#39;s   :245      NA&#39;s   :569      NA&#39;s   :233     
+##    selfBornUS      motherBornUS     fatherBornUS    englishAtHome   
+##  Min.   :0.0000   Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:1.0000   1st Qu.:1.0000   1st Qu.:1.0000   1st Qu.:1.0000  
+##  Median :1.0000   Median :1.0000   Median :1.0000   Median :1.0000  
+##  Mean   :0.9313   Mean   :0.7725   Mean   :0.7668   Mean   :0.8717  
+##  3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  NA&#39;s   :69       NA&#39;s   :71       NA&#39;s   :113      NA&#39;s   :71      
+##  computerForSchoolwork read30MinsADay   minutesPerWeekEnglish
+##  Min.   :0.0000        Min.   :0.0000   Min.   :   0.0       
+##  1st Qu.:1.0000        1st Qu.:0.0000   1st Qu.: 225.0       
+##  Median :1.0000        Median :0.0000   Median : 250.0       
+##  Mean   :0.8994        Mean   :0.2899   Mean   : 266.2       
+##  3rd Qu.:1.0000        3rd Qu.:1.0000   3rd Qu.: 300.0       
+##  Max.   :1.0000        Max.   :1.0000   Max.   :2400.0       
+##  NA&#39;s   :65            NA&#39;s   :34       NA&#39;s   :186          
+##  studentsInEnglish schoolHasLibrary  publicSchool        urban       
+##  Min.   : 1.0      Min.   :0.0000   Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:20.0      1st Qu.:1.0000   1st Qu.:1.0000   1st Qu.:0.0000  
+##  Median :25.0      Median :1.0000   Median :1.0000   Median :0.0000  
+##  Mean   :24.5      Mean   :0.9676   Mean   :0.9339   Mean   :0.3849  
+##  3rd Qu.:30.0      3rd Qu.:1.0000   3rd Qu.:1.0000   3rd Qu.:1.0000  
+##  Max.   :75.0      Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+##  NA&#39;s   :249       NA&#39;s   :143                                       
+##    schoolSize    readingScore  
+##  Min.   : 100   Min.   :168.6  
+##  1st Qu.: 712   1st Qu.:431.7  
+##  Median :1212   Median :499.7  
+##  Mean   :1369   Mean   :497.9  
+##  3rd Qu.:1900   3rd Qu.:566.2  
+##  Max.   :6694   Max.   :746.0  
+##  NA&#39;s   :162</code></pre>
+<div id="raceeth-preschool-expectbachelors-motherhs-motherbachelors-motherwork-fatherhs-fatherbachelors-fatherwork-selfbornus-motherbornus-fatherbornus-englishathome-computerforschoolwork-read30minsaday-minutesperweekenglish-studentsinenglish-schoolhaslibrary-schoolsize" class="section level4">
+<h4>raceeth, preschool, expectBachelors, motherHS, motherBachelors, motherWork, fatherHS, fatherBachelors, fatherWork, selfBornUS, motherBornUS, fatherBornUS, englishAtHome, computerForSchoolWork, read30MinsADay, minutesPerWeekEnglish, studentsInEnglish, schoolHasLibrary, schoolSize</h4>
+</div>
+</div>
+<div id="problem-1.4---removing-missing-values" class="section level3">
+<h3>Problem 1.4 - Removing missing values</h3>
+<p>Linear regression discards observations with missing data, so I’ll remove all such observations from the training and testing sets. Later, we’ll learn about imputation, which deals with missing data by filling in missing values with plausible information.</p>
+<p>Removing observations with missing value from pisaTrain and pisaTest:</p>
+<pre class="r"><code>pisaTrain = na.omit(pisaTrain)
+pisaTest = na.omit(pisaTest)</code></pre>
+<p>How many observations are now in the training set?</p>
+<pre class="r"><code>str(pisaTrain)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    2414 obs. of  24 variables:
+##  $ grade                : int  11 10 10 10 10 10 10 10 11 9 ...
+##  $ male                 : int  1 0 1 0 1 0 0 0 1 1 ...
+##  $ raceeth              : Factor w/ 7 levels &quot;American Indian/Alaska Native&quot;,..: 7 3 4 7 5 4 7 4 7 7 ...
+##  $ preschool            : int  0 1 1 1 1 1 1 1 1 1 ...
+##  $ expectBachelors      : int  0 1 0 1 1 1 1 0 1 1 ...
+##  $ motherHS             : int  1 0 1 1 1 1 1 0 1 1 ...
+##  $ motherBachelors      : int  1 0 0 0 1 0 0 0 0 1 ...
+##  $ motherWork           : int  1 1 1 0 1 1 1 0 0 1 ...
+##  $ fatherHS             : int  1 1 1 1 0 1 1 0 1 1 ...
+##  $ fatherBachelors      : int  0 0 0 0 0 0 1 0 1 1 ...
+##  $ fatherWork           : int  1 1 0 1 1 0 1 1 1 1 ...
+##  $ selfBornUS           : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ motherBornUS         : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ fatherBornUS         : int  1 1 0 1 1 0 1 0 1 1 ...
+##  $ englishAtHome        : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ computerForSchoolwork: int  1 1 1 1 1 0 1 1 1 1 ...
+##  $ read30MinsADay       : int  1 1 1 1 0 1 1 1 0 0 ...
+##  $ minutesPerWeekEnglish: int  450 200 250 300 294 232 225 270 275 225 ...
+##  $ studentsInEnglish    : int  25 23 35 30 24 14 20 25 30 15 ...
+##  $ schoolHasLibrary     : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ publicSchool         : int  1 1 1 1 1 1 1 1 1 0 ...
+##  $ urban                : int  0 1 1 0 0 0 0 1 1 1 ...
+##  $ schoolSize           : int  1173 2640 1095 1913 899 1733 149 1400 1988 915 ...
+##  $ readingScore         : num  575 458 614 439 466 ...
+##  - attr(*, &quot;na.action&quot;)= &#39;omit&#39; Named int  1 3 6 7 9 11 13 21 29 30 ...
+##   ..- attr(*, &quot;names&quot;)= chr  &quot;1&quot; &quot;3&quot; &quot;6&quot; &quot;7&quot; ...</code></pre>
+<p>2414</p>
+<p>How many observations are now in the testing set?</p>
+<pre class="r"><code>str(pisaTest)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    990 obs. of  24 variables:
+##  $ grade                : int  10 10 10 10 11 10 10 10 10 10 ...
+##  $ male                 : int  0 0 0 0 0 1 0 1 1 0 ...
+##  $ raceeth              : Factor w/ 7 levels &quot;American Indian/Alaska Native&quot;,..: 7 7 1 7 7 4 7 4 7 4 ...
+##  $ preschool            : int  1 1 1 1 0 1 0 1 1 1 ...
+##  $ expectBachelors      : int  0 1 0 0 0 1 1 0 1 1 ...
+##  $ motherHS             : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ motherBachelors      : int  1 0 0 0 1 1 0 0 1 0 ...
+##  $ motherWork           : int  1 0 0 1 1 1 0 1 1 1 ...
+##  $ fatherHS             : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ fatherBachelors      : int  0 1 0 0 1 0 0 0 1 1 ...
+##  $ fatherWork           : int  0 1 0 1 1 1 1 0 1 1 ...
+##  $ selfBornUS           : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ motherBornUS         : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ fatherBornUS         : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ englishAtHome        : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ computerForSchoolwork: int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ read30MinsADay       : int  0 0 1 1 1 1 0 0 0 1 ...
+##  $ minutesPerWeekEnglish: int  240 240 240 270 270 350 350 360 350 360 ...
+##  $ studentsInEnglish    : int  30 30 30 35 30 25 27 28 25 27 ...
+##  $ schoolHasLibrary     : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ publicSchool         : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ urban                : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ schoolSize           : int  808 808 808 808 808 899 899 899 899 899 ...
+##  $ readingScore         : num  355 454 405 665 605 ...
+##  - attr(*, &quot;na.action&quot;)= &#39;omit&#39; Named int  2 3 4 6 12 16 17 19 22 23 ...
+##   ..- attr(*, &quot;names&quot;)= chr  &quot;2&quot; &quot;3&quot; &quot;4&quot; &quot;6&quot; ...</code></pre>
+<p>990</p>
+</div>
+<div id="problem-2.1---factor-variables" class="section level3">
+<h3>Problem 2.1 - Factor variables</h3>
+<p>Factor variables are variables that take on a discrete set of values. This is an unordered factor because there isn’t any natural ordering between the levels.</p>
+<p>An ordered factor has a natural ordering between the levels (an example would be the classifications “large,” “medium,” and “small”).</p>
+<p>Which of the following variables is an unordered factor with at least 3 levels?</p>
+<pre class="r"><code>str(pisaTrain)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    2414 obs. of  24 variables:
+##  $ grade                : int  11 10 10 10 10 10 10 10 11 9 ...
+##  $ male                 : int  1 0 1 0 1 0 0 0 1 1 ...
+##  $ raceeth              : Factor w/ 7 levels &quot;American Indian/Alaska Native&quot;,..: 7 3 4 7 5 4 7 4 7 7 ...
+##  $ preschool            : int  0 1 1 1 1 1 1 1 1 1 ...
+##  $ expectBachelors      : int  0 1 0 1 1 1 1 0 1 1 ...
+##  $ motherHS             : int  1 0 1 1 1 1 1 0 1 1 ...
+##  $ motherBachelors      : int  1 0 0 0 1 0 0 0 0 1 ...
+##  $ motherWork           : int  1 1 1 0 1 1 1 0 0 1 ...
+##  $ fatherHS             : int  1 1 1 1 0 1 1 0 1 1 ...
+##  $ fatherBachelors      : int  0 0 0 0 0 0 1 0 1 1 ...
+##  $ fatherWork           : int  1 1 0 1 1 0 1 1 1 1 ...
+##  $ selfBornUS           : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ motherBornUS         : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ fatherBornUS         : int  1 1 0 1 1 0 1 0 1 1 ...
+##  $ englishAtHome        : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ computerForSchoolwork: int  1 1 1 1 1 0 1 1 1 1 ...
+##  $ read30MinsADay       : int  1 1 1 1 0 1 1 1 0 0 ...
+##  $ minutesPerWeekEnglish: int  450 200 250 300 294 232 225 270 275 225 ...
+##  $ studentsInEnglish    : int  25 23 35 30 24 14 20 25 30 15 ...
+##  $ schoolHasLibrary     : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ publicSchool         : int  1 1 1 1 1 1 1 1 1 0 ...
+##  $ urban                : int  0 1 1 0 0 0 0 1 1 1 ...
+##  $ schoolSize           : int  1173 2640 1095 1913 899 1733 149 1400 1988 915 ...
+##  $ readingScore         : num  575 458 614 439 466 ...
+##  - attr(*, &quot;na.action&quot;)= &#39;omit&#39; Named int  1 3 6 7 9 11 13 21 29 30 ...
+##   ..- attr(*, &quot;names&quot;)= chr  &quot;1&quot; &quot;3&quot; &quot;6&quot; &quot;7&quot; ...</code></pre>
+<div id="raceeth" class="section level4">
+<h4>raceeth</h4>
+<p>Which of the following variables is an ordered factor with at least 3 levels?
+#### grade</p>
+</div>
+</div>
+<div id="problem-2.2---unordered-factors-in-regression-models" class="section level3">
+<h3>Problem 2.2 - Unordered factors in regression models</h3>
+<p>To include unordered factors in a linear regression model, we define one level as the “reference level” and add a binary variable for each of the remaining levels. In this way, a factor with n levels is replaced by n-1 binary variables. The reference level is typically selected to be the most frequently occurring level in the dataset.</p>
+<p>As an example, consider the unordered factor variable “color”, with levels “red”, “green”, and “blue”. If “green” were the reference level, then we would add binary variables “colored” and “colorblue” to a linear regression problem. All red examples would have colored=1 and colorblue=0. All blue examples would have colored=0 and colorblue=1. All green examples would have colored=0 and colorblue=0.</p>
+<p>Now, consider the variable “raceeth” in our problem, which has levels <strong>“American Indian/Alaska Native”, “Asian”, “Black”, “Hispanic”,</strong></p>
+<p>“More than one race”, <strong>“Native Hawaiian/Other Pacific Islander”, and “White”.</strong></p>
+<p>Because it’s the most common in our population, we will select White as the reference level.</p>
+<p>Which binary variables will be included in the regression model?</p>
+<pre class="r"><code>str(pisaTrain)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    2414 obs. of  24 variables:
+##  $ grade                : int  11 10 10 10 10 10 10 10 11 9 ...
+##  $ male                 : int  1 0 1 0 1 0 0 0 1 1 ...
+##  $ raceeth              : Factor w/ 7 levels &quot;American Indian/Alaska Native&quot;,..: 7 3 4 7 5 4 7 4 7 7 ...
+##  $ preschool            : int  0 1 1 1 1 1 1 1 1 1 ...
+##  $ expectBachelors      : int  0 1 0 1 1 1 1 0 1 1 ...
+##  $ motherHS             : int  1 0 1 1 1 1 1 0 1 1 ...
+##  $ motherBachelors      : int  1 0 0 0 1 0 0 0 0 1 ...
+##  $ motherWork           : int  1 1 1 0 1 1 1 0 0 1 ...
+##  $ fatherHS             : int  1 1 1 1 0 1 1 0 1 1 ...
+##  $ fatherBachelors      : int  0 0 0 0 0 0 1 0 1 1 ...
+##  $ fatherWork           : int  1 1 0 1 1 0 1 1 1 1 ...
+##  $ selfBornUS           : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ motherBornUS         : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ fatherBornUS         : int  1 1 0 1 1 0 1 0 1 1 ...
+##  $ englishAtHome        : int  1 1 1 1 1 0 1 0 1 1 ...
+##  $ computerForSchoolwork: int  1 1 1 1 1 0 1 1 1 1 ...
+##  $ read30MinsADay       : int  1 1 1 1 0 1 1 1 0 0 ...
+##  $ minutesPerWeekEnglish: int  450 200 250 300 294 232 225 270 275 225 ...
+##  $ studentsInEnglish    : int  25 23 35 30 24 14 20 25 30 15 ...
+##  $ schoolHasLibrary     : int  1 1 1 1 1 1 1 1 1 1 ...
+##  $ publicSchool         : int  1 1 1 1 1 1 1 1 1 0 ...
+##  $ urban                : int  0 1 1 0 0 0 0 1 1 1 ...
+##  $ schoolSize           : int  1173 2640 1095 1913 899 1733 149 1400 1988 915 ...
+##  $ readingScore         : num  575 458 614 439 466 ...
+##  - attr(*, &quot;na.action&quot;)= &#39;omit&#39; Named int  1 3 6 7 9 11 13 21 29 30 ...
+##   ..- attr(*, &quot;names&quot;)= chr  &quot;1&quot; &quot;3&quot; &quot;6&quot; &quot;7&quot; ...</code></pre>
+<ul>
+<li>raceethAmerican Indian/Alaska Native</li>
+<li>raceethAsian</li>
+<li>raceethBlack</li>
+<li>raceethHispanic</li>
+<li>raceethMore than one race</li>
+<li>raceethNative Hawaiian/Other Pacific Islander</li>
+</ul>
+</div>
+<div id="problem-2.3---example-unordered-factors" class="section level3">
+<h3>Problem 2.3 - Example unordered factors</h3>
+<p>Consider again adding our unordered factor race to the regression model with reference level “White”. For a student who is Asian, which binary variables would be set to 0. All remaining variables will be set to 1. (all except raceethAsian)
+#### all</p>
+</div>
+<div id="problem-3.1---building-a-model" class="section level3">
+<h3>Problem 3.1 - Building a model</h3>
+<p>Because the race variable takes on text values, it was loaded as a factor variable when we read in the dataset with read.csv() – you can see this when you run str(pisaTrain) or str(pisaTest).</p>
+<p>However, by default R selects the first level alphabetically (“American Indian/Alaska Native”) as the reference level of our factor instead of the most common level (“White”).</p>
+<p>Let’s Set the reference level of the factor.</p>
+<pre class="r"><code>pisaTrain$raceeth = relevel(pisaTrain$raceeth, &quot;White&quot;)
+pisaTest$raceeth = relevel(pisaTest$raceeth, &quot;White&quot;)</code></pre>
+<p>Now, building a linear regression model (call it lmScore) using the training set to predict readingScore using all the remaining variables. It would be time-consuming to type all the variables, but R provides the shorthand notation “readingScore ~ .” to mean “predict readingScore using all the other variables in the dataframe.” The period is used to replace listing out all of the independent variables.</p>
+<p>As an example, if our dependent variable is called “Y”, our independent variables are called “X1”, “X2”, and “X3”, and our training dataset is called “Train”, instead of the regular notation: LinReg = lm(Y ~ X1 + X2 + X3, data = Train)</p>
+<p>You would use the following code to build our model:
+LinReg = lm(Y ~ ., data = Train)</p>
+<pre class="r"><code>lmScore &lt;- lm(readingScore ~ ., data = pisaTrain)</code></pre>
+<p>What is the Multiple R-squared value of lmScore on the training set?</p>
+<pre class="r"><code>summary(lmScore)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = readingScore ~ ., data = pisaTrain)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -247.44  -48.86    1.86   49.77  217.18 
+## 
+## Coefficients:
+##                                                 Estimate Std. Error
+## (Intercept)                                   143.766333  33.841226
+## grade                                          29.542707   2.937399
+## male                                          -14.521653   3.155926
+## raceethAmerican Indian/Alaska Native          -67.277327  16.786935
+## raceethAsian                                   -4.110325   9.220071
+## raceethBlack                                  -67.012347   5.460883
+## raceethHispanic                               -38.975486   5.177743
+## raceethMore than one race                     -16.922522   8.496268
+## raceethNative Hawaiian/Other Pacific Islander  -5.101601  17.005696
+## preschool                                      -4.463670   3.486055
+## expectBachelors                                55.267080   4.293893
+## motherHS                                        6.058774   6.091423
+## motherBachelors                                12.638068   3.861457
+## motherWork                                     -2.809101   3.521827
+## fatherHS                                        4.018214   5.579269
+## fatherBachelors                                16.929755   3.995253
+## fatherWork                                      5.842798   4.395978
+## selfBornUS                                     -3.806278   7.323718
+## motherBornUS                                   -8.798153   6.587621
+## fatherBornUS                                    4.306994   6.263875
+## englishAtHome                                   8.035685   6.859492
+## computerForSchoolwork                          22.500232   5.702562
+## read30MinsADay                                 34.871924   3.408447
+## minutesPerWeekEnglish                           0.012788   0.010712
+## studentsInEnglish                              -0.286631   0.227819
+## schoolHasLibrary                               12.215085   9.264884
+## publicSchool                                  -16.857475   6.725614
+## urban                                          -0.110132   3.962724
+## schoolSize                                      0.006540   0.002197
+##                                               t value Pr(&gt;|t|)    
+## (Intercept)                                     4.248 2.24e-05 ***
+## grade                                          10.057  &lt; 2e-16 ***
+## male                                           -4.601 4.42e-06 ***
+## raceethAmerican Indian/Alaska Native           -4.008 6.32e-05 ***
+## raceethAsian                                   -0.446  0.65578    
+## raceethBlack                                  -12.271  &lt; 2e-16 ***
+## raceethHispanic                                -7.528 7.29e-14 ***
+## raceethMore than one race                      -1.992  0.04651 *  
+## raceethNative Hawaiian/Other Pacific Islander  -0.300  0.76421    
+## preschool                                      -1.280  0.20052    
+## expectBachelors                                12.871  &lt; 2e-16 ***
+## motherHS                                        0.995  0.32001    
+## motherBachelors                                 3.273  0.00108 ** 
+## motherWork                                     -0.798  0.42517    
+## fatherHS                                        0.720  0.47147    
+## fatherBachelors                                 4.237 2.35e-05 ***
+## fatherWork                                      1.329  0.18393    
+## selfBornUS                                     -0.520  0.60331    
+## motherBornUS                                   -1.336  0.18182    
+## fatherBornUS                                    0.688  0.49178    
+## englishAtHome                                   1.171  0.24153    
+## computerForSchoolwork                           3.946 8.19e-05 ***
+## read30MinsADay                                 10.231  &lt; 2e-16 ***
+## minutesPerWeekEnglish                           1.194  0.23264    
+## studentsInEnglish                              -1.258  0.20846    
+## schoolHasLibrary                                1.318  0.18749    
+## publicSchool                                   -2.506  0.01226 *  
+## urban                                          -0.028  0.97783    
+## schoolSize                                      2.977  0.00294 ** 
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 73.81 on 2385 degrees of freedom
+## Multiple R-squared:  0.3251, Adjusted R-squared:  0.3172 
+## F-statistic: 41.04 on 28 and 2385 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>0.3251</p>
+<p>Note, that this R-squared is lower than the ones prevously observed. This does not necessarily imply that the model is of poor quality. More often than not, it simply means that the prediction problem at hand (predicting a student’s test score based on demographic and school-related variables) is more difficult than other prediction problems (like predicting a team’s number of wins from their runs scored and allowed, or predicting the quality of wine from weather conditions).</p>
+</div>
+<div id="problem-3.2---computing-the-root-mean-squared-error-of-the-model" class="section level3">
+<h3>Problem 3.2 - Computing the root-mean squared error of the model</h3>
+<p>What is the training-set root mean squared error (RMSE) of lmScore?</p>
+<pre class="r"><code>lmScoreSSE &lt;- sum(lmScore$residuals^2)
+lmScoreSSE</code></pre>
+<pre><code>## [1] 12993365</code></pre>
+<pre class="r"><code>sqrt(lmScoreSSE/nrow(pisaTrain))</code></pre>
+<pre><code>## [1] 73.36555</code></pre>
+</div>
+<div id="problem-3.3---comparing-predictions-for-similar-students" class="section level3">
+<h3>Problem 3.3 - Comparing predictions for similar students</h3>
+<p>Consider two students A and B. They have all variable values the same, except that student A is in grade 11 and student B is in grade 9.</p>
+<p>What is the predicted reading score of student A minus the predicted reading score of student B?</p>
+<pre class="r"><code>pisaPred &lt;- pisaTest[1,]
+pisaPred &lt;- rbind(pisaPred, pisaTest[1,])
+pisaPred[1,1] &lt;- 11 ## grade 11 for student A
+pisaPred[2,1] &lt;- 9  ## grade 9 for student B
+pisaPred</code></pre>
+<pre><code>##   grade male raceeth preschool expectBachelors motherHS motherBachelors
+## 1    11    0   White         1               0        1               1
+## 2     9    0   White         1               0        1               1
+##   motherWork fatherHS fatherBachelors fatherWork selfBornUS motherBornUS
+## 1          1        1               0          0          1            1
+## 2          1        1               0          0          1            1
+##   fatherBornUS englishAtHome computerForSchoolwork read30MinsADay
+## 1            1             1                     1              0
+## 2            1             1                     1              0
+##   minutesPerWeekEnglish studentsInEnglish schoolHasLibrary publicSchool
+## 1                   240                30                1            1
+## 2                   240                30                1            1
+##   urban schoolSize readingScore
+## 1     0        808       355.24
+## 2     0        808       355.24</code></pre>
+<pre class="r"><code>predictedScores &lt;- predict(lmScore, pisaPred)
+predictedScores</code></pre>
+<pre><code>##        1        2 
+## 501.5294 442.4440</code></pre>
+<pre class="r"><code>predictedScores[1] - predictedScores[2]</code></pre>
+<pre><code>##        1 
+## 59.08541</code></pre>
+<p>59.08541 ~ 59.09</p>
+</div>
+<div id="problem-3.4---interpreting-model-coefficients" class="section level3">
+<h3>Problem 3.4 - Interpreting model coefficients</h3>
+<p>What is the meaning of the coefficient associated with variable raceethAsian?</p>
+<pre class="r"><code>summary(lmScore)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = readingScore ~ ., data = pisaTrain)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -247.44  -48.86    1.86   49.77  217.18 
+## 
+## Coefficients:
+##                                                 Estimate Std. Error
+## (Intercept)                                   143.766333  33.841226
+## grade                                          29.542707   2.937399
+## male                                          -14.521653   3.155926
+## raceethAmerican Indian/Alaska Native          -67.277327  16.786935
+## raceethAsian                                   -4.110325   9.220071
+## raceethBlack                                  -67.012347   5.460883
+## raceethHispanic                               -38.975486   5.177743
+## raceethMore than one race                     -16.922522   8.496268
+## raceethNative Hawaiian/Other Pacific Islander  -5.101601  17.005696
+## preschool                                      -4.463670   3.486055
+## expectBachelors                                55.267080   4.293893
+## motherHS                                        6.058774   6.091423
+## motherBachelors                                12.638068   3.861457
+## motherWork                                     -2.809101   3.521827
+## fatherHS                                        4.018214   5.579269
+## fatherBachelors                                16.929755   3.995253
+## fatherWork                                      5.842798   4.395978
+## selfBornUS                                     -3.806278   7.323718
+## motherBornUS                                   -8.798153   6.587621
+## fatherBornUS                                    4.306994   6.263875
+## englishAtHome                                   8.035685   6.859492
+## computerForSchoolwork                          22.500232   5.702562
+## read30MinsADay                                 34.871924   3.408447
+## minutesPerWeekEnglish                           0.012788   0.010712
+## studentsInEnglish                              -0.286631   0.227819
+## schoolHasLibrary                               12.215085   9.264884
+## publicSchool                                  -16.857475   6.725614
+## urban                                          -0.110132   3.962724
+## schoolSize                                      0.006540   0.002197
+##                                               t value Pr(&gt;|t|)    
+## (Intercept)                                     4.248 2.24e-05 ***
+## grade                                          10.057  &lt; 2e-16 ***
+## male                                           -4.601 4.42e-06 ***
+## raceethAmerican Indian/Alaska Native           -4.008 6.32e-05 ***
+## raceethAsian                                   -0.446  0.65578    
+## raceethBlack                                  -12.271  &lt; 2e-16 ***
+## raceethHispanic                                -7.528 7.29e-14 ***
+## raceethMore than one race                      -1.992  0.04651 *  
+## raceethNative Hawaiian/Other Pacific Islander  -0.300  0.76421    
+## preschool                                      -1.280  0.20052    
+## expectBachelors                                12.871  &lt; 2e-16 ***
+## motherHS                                        0.995  0.32001    
+## motherBachelors                                 3.273  0.00108 ** 
+## motherWork                                     -0.798  0.42517    
+## fatherHS                                        0.720  0.47147    
+## fatherBachelors                                 4.237 2.35e-05 ***
+## fatherWork                                      1.329  0.18393    
+## selfBornUS                                     -0.520  0.60331    
+## motherBornUS                                   -1.336  0.18182    
+## fatherBornUS                                    0.688  0.49178    
+## englishAtHome                                   1.171  0.24153    
+## computerForSchoolwork                           3.946 8.19e-05 ***
+## read30MinsADay                                 10.231  &lt; 2e-16 ***
+## minutesPerWeekEnglish                           1.194  0.23264    
+## studentsInEnglish                              -1.258  0.20846    
+## schoolHasLibrary                                1.318  0.18749    
+## publicSchool                                   -2.506  0.01226 *  
+## urban                                          -0.028  0.97783    
+## schoolSize                                      2.977  0.00294 ** 
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 73.81 on 2385 degrees of freedom
+## Multiple R-squared:  0.3251, Adjusted R-squared:  0.3172 
+## F-statistic: 41.04 on 28 and 2385 DF,  p-value: &lt; 2.2e-16</code></pre>
+<div id="predicted-difference-in-the-reading-score-between-an-asian-student-and-a-white-student-who-is-otherwise-identical." class="section level4">
+<h4>Predicted difference in the reading score between an Asian student and a white student who is otherwise identical.</h4>
+</div>
+</div>
+<div id="problem-3.5---identifying-variables-lacking-statistical-significance" class="section level3">
+<h3>Problem 3.5 - Identifying variables lacking statistical significance</h3>
+<p>Based on the significance codes, which variables are candidates for removal from the model? (We’ll assume that the factor variable raceeth should only be removed if none of its levels are significant.)</p>
+<ul>
+<li>preschool, motherHS, motherWork, fatherHS, fatherWork, selfBornUS,</li>
+<li>motherBornUS, fatherBornUS, englishAtHome, minutesPerWeekEnglish,</li>
+<li>studentsInEnglish, schoolHasLibrary, urban</li>
+</ul>
+</div>
+<div id="problem-4.1---predicting-on-unseen-data" class="section level3">
+<h3>Problem 4.1 - Predicting on unseen data</h3>
+<p>Using the “predict” function and supplying the “newdata” argument, use the lmScore model to predict the reading scores of students in pisaTest. Call this vector of predictions “predTest”. Do not change the variables in the model (for example, do not remove variables that we found were not significant in the previous part of this problem). Use the summary function to describe the test-set predictions.</p>
+<p>What is the range between the max and min predicted reading score on the test-set?</p>
+<pre class="r"><code>predTest &lt;- predict(lmScore, newdata = pisaTest)
+summary(predTest)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##   353.2   482.0   524.0   516.7   555.7   637.7</code></pre>
+<p>637.7 - 353.2</p>
+</div>
+<div id="problem-4.2---test-set-sse-and-rmse" class="section level3">
+<h3>Problem 4.2 - Test set SSE and RMSE</h3>
+<p>What is the sum of squared errors (SSE) of lmScore on the testing set?</p>
+<pre class="r"><code>test_set_SSE = sum((predTest - pisaTest$readingScore)^2)
+test_set_SSE</code></pre>
+<pre><code>## [1] 5762082</code></pre>
+<p>What is the root mean squared error (RMSE) of lmScore on the testing set?</p>
+<pre class="r"><code>test_set_RMSE = sqrt(test_set_SSE/nrow(pisaTest))
+test_set_RMSE</code></pre>
+<pre><code>## [1] 76.29079</code></pre>
+</div>
+<div id="problem-4.3---baseline-prediction-and-test-set-sse" class="section level3">
+<h3>Problem 4.3 - Baseline prediction and test-set SSE</h3>
+<p>What is the predicted test score used in the baseline model?</p>
+<pre class="r"><code>mean(pisaTrain$readingScore)</code></pre>
+<pre><code>## [1] 517.9629</code></pre>
+<p>What is the sum of squared errors of the baseline model on the testing set? HINT: We call the sum of squared errors for the baseline model the total sum of squares (SST).</p>
+<pre class="r"><code>test_set_SST = sum((mean(pisaTrain$readingScore) - pisaTest$readingScore)^2)
+test_set_SST</code></pre>
+<pre><code>## [1] 7802354</code></pre>
+</div>
+<div id="problem-4.4---test-set-r-squared" class="section level3">
+<h3>Problem 4.4 - Test-set R-squared</h3>
+<p>What is the test-set R-squared value of lmScore?</p>
+<pre class="r"><code>1 - test_set_SSE/test_set_SST</code></pre>
+<pre><code>## [1] 0.2614944</code></pre>
+</div>

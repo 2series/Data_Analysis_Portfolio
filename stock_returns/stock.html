@@ -1,0 +1,407 @@
+---
+title: "Stock Returns Prediction"
+author: "Rihad Variawa"
+date: "2019-04-09"
+output: html_document
+summary: 'Selecting which stocks to invest-in?'
+header:
+  image: 'headers/sck.jpg'
+---
+
+
+
+<p>About cluster-then-predict, a methodology in which you first cluster observations and then build cluster-specific prediction models. In this problem, I’ll use cluster-then-predict to predict future stock prices using historical stock data.</p>
+<p>When selecting which stocks to invest in, investors seek to obtain good future returns. In this analysis, I’ll first use clustering to identify clusters of stocks that have similar returns over time. Then, use logistic regression to predict whether or not the stocks will have positive future returns.</p>
+<p>For this problem, I’ll use StocksCluster.csv, which contains monthly stock returns from the NASDAQ stock exchange. The NASDAQ is the second-largest stock exchange in the world, and it lists many tech companies. The stock price data used in this analysis was obtained from <strong>infochimps,</strong> a website providing access to many datasets.</p>
+<p>Each observation in the dataset is the monthly returns of a particular company in a particular year. The years included are 2000-2009. The companies are limited to tickers that were listed on the exchange for the entire period 2000-2009, and whose stock price never fell below $1. So, for example, one observation is for Yahoo in 2000, and another observation is for Yahoo in 2001. Our goal will be to predict whether or not the stock return in December will be positive, using the stock returns for the first 11 months of the year.</p>
+<p>This dataset contains the following variables:</p>
+<ul>
+<li>ReturnJan = the return for the company’s stock during January (in the year of the observation).</li>
+<li>ReturnFeb = the return for the company’s stock during February (in the year of the observation).</li>
+<li>ReturnMar = the return for the company’s stock during March (in the year of the observation).</li>
+<li>ReturnApr = the return for the company’s stock during April (in the year of the observation).</li>
+<li>ReturnMay = the return for the company’s stock during May (in the year of the observation).</li>
+<li>ReturnJune = the return for the company’s stock during June (in the year of the observation).</li>
+<li>ReturnJuly = the return for the company’s stock during July (in the year of the observation).</li>
+<li>ReturnAug = the return for the company’s stock during August (in the year of the observation).</li>
+<li>ReturnSep = the return for the company’s stock during September (in the year of the observation).</li>
+<li>ReturnOct = the return for the company’s stock during October (in the year of the observation).</li>
+<li>ReturnNov = the return for the company’s stock during November (in the year of the observation).</li>
+<li>PositiveDec = whether or not the company’s stock had a positive return in December (in the year of the observation). This variable takes value 1 if the return was positive, and value 0 if the return was not positive.</li>
+</ul>
+<p>For the first 11 variables, the value stored is a proportional change in stock value during that month. For instance, a value of 0.05 means the stock increased in value 5% during the month, while a value of -0.02 means the stock decreased in value 2% during the month.</p>
+<div id="problem-1.1---exploring-the-dataset" class="section level3">
+<h3>Problem 1.1 - Exploring the Dataset</h3>
+<p>Load StocksCluster.csv into a dataframe called “stocks”.</p>
+<p>How many observations are in the dataset?</p>
+<pre class="r"><code>stocks &lt;- read.csv(&quot;StocksCluster.csv&quot;)
+str(stocks)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    11580 obs. of  12 variables:
+##  $ ReturnJan  : num  0.0807 -0.0107 0.0477 -0.074 -0.031 ...
+##  $ ReturnFeb  : num  0.0663 0.1021 0.036 -0.0482 -0.2127 ...
+##  $ ReturnMar  : num  0.0329 0.1455 0.0397 0.0182 0.0915 ...
+##  $ ReturnApr  : num  0.1831 -0.0844 -0.1624 -0.0247 0.1893 ...
+##  $ ReturnMay  : num  0.13033 -0.3273 -0.14743 -0.00604 -0.15385 ...
+##  $ ReturnJune : num  -0.0176 -0.3593 0.0486 -0.0253 -0.1061 ...
+##  $ ReturnJuly : num  -0.0205 -0.0253 -0.1354 -0.094 0.3553 ...
+##  $ ReturnAug  : num  0.0247 0.2113 0.0334 0.0953 0.0568 ...
+##  $ ReturnSep  : num  -0.0204 -0.58 0 0.0567 0.0336 ...
+##  $ ReturnOct  : num  -0.1733 -0.2671 0.0917 -0.0963 0.0363 ...
+##  $ ReturnNov  : num  -0.0254 -0.1512 -0.0596 -0.0405 -0.0853 ...
+##  $ PositiveDec: int  0 0 0 1 1 1 1 0 0 0 ...</code></pre>
+<p>11580</p>
+</div>
+<div id="problem-1.2---exploring-the-dataset" class="section level3">
+<h3>Problem 1.2 - Exploring the Dataset</h3>
+<p>What proportion of the observations have positive returns in December?</p>
+<pre class="r"><code>table(stocks$PositiveDec)</code></pre>
+<pre><code>## 
+##    0    1 
+## 5256 6324</code></pre>
+<pre class="r"><code>6324 / (5256 + 6324)</code></pre>
+<pre><code>## [1] 0.546114</code></pre>
+</div>
+<div id="problem-1.3---exploring-the-dataset" class="section level3">
+<h3>Problem 1.3 - Exploring the Dataset</h3>
+<p>What is the maximum correlation between any two return variables in the dataset? You should look at the pairwise correlations between ReturnJan, ReturnFeb, ReturnMar, ReturnApr, ReturnMay, ReturnJune, ReturnJuly, ReturnAug, ReturnSep, ReturnOct, and ReturnNov.</p>
+<pre class="r"><code>cor(stocks[, 1:11])</code></pre>
+<pre><code>##              ReturnJan   ReturnFeb    ReturnMar    ReturnApr    ReturnMay
+## ReturnJan   1.00000000  0.06677458 -0.090496798 -0.037678006 -0.044411417
+## ReturnFeb   0.06677458  1.00000000 -0.155983263 -0.191351924 -0.095520920
+## ReturnMar  -0.09049680 -0.15598326  1.000000000  0.009726288 -0.003892789
+## ReturnApr  -0.03767801 -0.19135192  0.009726288  1.000000000  0.063822504
+## ReturnMay  -0.04441142 -0.09552092 -0.003892789  0.063822504  1.000000000
+## ReturnJune  0.09223831  0.16999448 -0.085905486 -0.011027752 -0.021074539
+## ReturnJuly -0.08142976 -0.06177851  0.003374160  0.080631932  0.090850264
+## ReturnAug  -0.02279202  0.13155979 -0.022005400 -0.051756051 -0.033125658
+## ReturnSep  -0.02643715  0.04350177  0.076518327 -0.028920972  0.021962862
+## ReturnOct   0.14297723 -0.08732427 -0.011923758  0.048540025  0.017166728
+## ReturnNov   0.06763233 -0.15465828  0.037323535  0.031761837  0.048046590
+##             ReturnJune    ReturnJuly     ReturnAug     ReturnSep
+## ReturnJan   0.09223831 -0.0814297650 -0.0227920187 -0.0264371526
+## ReturnFeb   0.16999448 -0.0617785094  0.1315597863  0.0435017706
+## ReturnMar  -0.08590549  0.0033741597 -0.0220053995  0.0765183267
+## ReturnApr  -0.01102775  0.0806319317 -0.0517560510 -0.0289209718
+## ReturnMay  -0.02107454  0.0908502642 -0.0331256580  0.0219628623
+## ReturnJune  1.00000000 -0.0291525996  0.0107105260  0.0447472692
+## ReturnJuly -0.02915260  1.0000000000  0.0007137558  0.0689478037
+## ReturnAug   0.01071053  0.0007137558  1.0000000000  0.0007407139
+## ReturnSep   0.04474727  0.0689478037  0.0007407139  1.0000000000
+## ReturnOct  -0.02263599 -0.0547089088 -0.0755945614 -0.0580792362
+## ReturnNov  -0.06527054 -0.0483738369 -0.1164890345 -0.0197197998
+##              ReturnOct   ReturnNov
+## ReturnJan   0.14297723  0.06763233
+## ReturnFeb  -0.08732427 -0.15465828
+## ReturnMar  -0.01192376  0.03732353
+## ReturnApr   0.04854003  0.03176184
+## ReturnMay   0.01716673  0.04804659
+## ReturnJune -0.02263599 -0.06527054
+## ReturnJuly -0.05470891 -0.04837384
+## ReturnAug  -0.07559456 -0.11648903
+## ReturnSep  -0.05807924 -0.01971980
+## ReturnOct   1.00000000  0.19167279
+## ReturnNov   0.19167279  1.00000000</code></pre>
+<p>ReturnOct vs ReturnNov = 0.19167279</p>
+</div>
+<div id="problem-1.4---exploring-the-dataset" class="section level3">
+<h3>Problem 1.4 - Exploring the Dataset</h3>
+<p>Which month (from January through November) has the largest mean return across all observations in the dataset?</p>
+<pre class="r"><code>str(stocks)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    11580 obs. of  12 variables:
+##  $ ReturnJan  : num  0.0807 -0.0107 0.0477 -0.074 -0.031 ...
+##  $ ReturnFeb  : num  0.0663 0.1021 0.036 -0.0482 -0.2127 ...
+##  $ ReturnMar  : num  0.0329 0.1455 0.0397 0.0182 0.0915 ...
+##  $ ReturnApr  : num  0.1831 -0.0844 -0.1624 -0.0247 0.1893 ...
+##  $ ReturnMay  : num  0.13033 -0.3273 -0.14743 -0.00604 -0.15385 ...
+##  $ ReturnJune : num  -0.0176 -0.3593 0.0486 -0.0253 -0.1061 ...
+##  $ ReturnJuly : num  -0.0205 -0.0253 -0.1354 -0.094 0.3553 ...
+##  $ ReturnAug  : num  0.0247 0.2113 0.0334 0.0953 0.0568 ...
+##  $ ReturnSep  : num  -0.0204 -0.58 0 0.0567 0.0336 ...
+##  $ ReturnOct  : num  -0.1733 -0.2671 0.0917 -0.0963 0.0363 ...
+##  $ ReturnNov  : num  -0.0254 -0.1512 -0.0596 -0.0405 -0.0853 ...
+##  $ PositiveDec: int  0 0 0 1 1 1 1 0 0 0 ...</code></pre>
+<pre class="r"><code>colMeans(stocks[, 1:11])</code></pre>
+<pre><code>##    ReturnJan    ReturnFeb    ReturnMar    ReturnApr    ReturnMay 
+##  0.012631602 -0.007604784  0.019402336  0.026308147  0.024736591 
+##   ReturnJune   ReturnJuly    ReturnAug    ReturnSep    ReturnOct 
+##  0.005937902  0.003050863  0.016198265 -0.014720768  0.005650844 
+##    ReturnNov 
+##  0.011387440</code></pre>
+<p>ReturnApr = 0.026308147</p>
+<p>Which month (from January through November) has the smallest mean return across all observations in the dataset?
+#### ReturnSep = -0.014720768</p>
+</div>
+<div id="problem-2.1---initial-logistic-regression-model" class="section level3">
+<h3>Problem 2.1 - Initial Logistic Regression Model</h3>
+<p>Split the data into a training set and testing set, putting 70% of the data in the training set and 30% of the data in the testing set:</p>
+<pre class="r"><code>library(caTools)
+set.seed(144)
+spl &lt;- sample.split(stocks$PositiveDec, SplitRatio = 0.7)
+stocksTrain &lt;- subset(stocks, spl == TRUE)
+stocksTest &lt;- subset(stocks, spl == FALSE)</code></pre>
+<p>Then, use the stocksTrain dataframe to train a logistic regression model (name it StocksModel) to predict PositiveDec using all the other variables as independent variables.</p>
+<p>Not forgetting to add the argument family=binomial to our glm code.</p>
+<pre class="r"><code>StocksModel &lt;- glm(PositiveDec ~ ., data = stocksTrain, family = binomial)</code></pre>
+<p>What is the overall accuracy on the training set, using a threshold of 0.5?</p>
+<pre class="r"><code>StocksModelTrainPred &lt;- predict(StocksModel, type = &quot;response&quot;)
+head(StocksModelTrainPred)</code></pre>
+<pre><code>##         1         2         4         6         7         8 
+## 0.6333193 0.3804326 0.5432996 0.6485711 0.5991750 0.4372892</code></pre>
+<pre class="r"><code>table(stocksTrain$PositiveDec, StocksModelTrainPred &gt;= 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   990 2689
+##   1   787 3640</code></pre>
+<pre class="r"><code>(990 + 3640) / nrow(stocksTrain)</code></pre>
+<pre><code>## [1] 0.5711818</code></pre>
+</div>
+<div id="problem-2.2---initial-logistic-regression-model" class="section level3">
+<h3>Problem 2.2 - Initial Logistic Regression Model</h3>
+<p>Now obtain test-set predictions from StocksModel.</p>
+<p>What is the overall accuracy of the model on the test, again using a threshold of 0.5?</p>
+<pre class="r"><code>StocksModelTestPred &lt;- 
+    predict(StocksModel, newdata = stocksTest, type = &quot;response&quot;)
+head(StocksModelTestPred)</code></pre>
+<pre><code>##         3         5        15        17        23        26 
+## 0.4506152 0.6470609 0.6089785 0.5708036 0.4758428 0.3631213</code></pre>
+<pre class="r"><code>table(stocksTest$PositiveDec, StocksModelTestPred &gt;= 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   417 1160
+##   1   344 1553</code></pre>
+<pre class="r"><code>(417 + 1553) / nrow(stocksTest)</code></pre>
+<pre><code>## [1] 0.5670697</code></pre>
+</div>
+<div id="problem-2.3---initial-logistic-regression-model" class="section level3">
+<h3>Problem 2.3 - Initial Logistic Regression Model</h3>
+<p>What is the accuracy on the test-set of a baseline model that always predicts the most common outcome (PositiveDec = 1)?</p>
+<pre class="r"><code>table(stocksTest$PositiveDec)</code></pre>
+<pre><code>## 
+##    0    1 
+## 1577 1897</code></pre>
+<pre class="r"><code>1897 / (1577 + 1897)</code></pre>
+<pre><code>## [1] 0.5460564</code></pre>
+</div>
+<div id="problem-3.1---clustering-stocks" class="section level3">
+<h3>Problem 3.1 - Clustering Stocks</h3>
+<p>Now, let’s cluster the stocks. The first step in this process is to remove the dependent variable.</p>
+<pre class="r"><code>limitedTrain &lt;- stocksTrain
+limitedTrain$PositiveDec &lt;- NULL
+limitedTest &lt;- stocksTest
+limitedTest$PositiveDec &lt;- NULL</code></pre>
+<p>Why do we need to remove the dependent variable in the clustering phase of the cluster-then-predict methodology?
+#### Needing to know the dependent variable value to assign an observation to a cluster defeats the purpose of the methodology</p>
+</div>
+<div id="problem-3.2---clustering-stocks" class="section level3">
+<h3>Problem 3.2 - Clustering Stocks</h3>
+<p>preProcess code from the caret package, which normalizes variables by subtracting by the mean and dividing by the standard deviation.</p>
+<p>In cases where we have a training and testing set, we’ll want to normalize by the mean and standard deviation of the variables in the training set. We can do this by passing just the training set to the preProcess function:</p>
+<pre class="r"><code>library(caret)</code></pre>
+<pre><code>## Loading required package: lattice</code></pre>
+<pre><code>## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>preproc &lt;- preProcess(limitedTrain)
+normTrain &lt;- predict(preproc, limitedTrain)
+normTest &lt;- predict(preproc, limitedTest)</code></pre>
+<p>What is the mean of the ReturnJan variable in normTrain?</p>
+<pre class="r"><code>summary(normTrain)</code></pre>
+<pre><code>##    ReturnJan          ReturnFeb          ReturnMar       
+##  Min.   :-4.57682   Min.   :-3.43004   Min.   :-4.54609  
+##  1st Qu.:-0.48271   1st Qu.:-0.35589   1st Qu.:-0.40758  
+##  Median :-0.07055   Median :-0.01875   Median :-0.05778  
+##  Mean   : 0.00000   Mean   : 0.00000   Mean   : 0.00000  
+##  3rd Qu.: 0.35898   3rd Qu.: 0.25337   3rd Qu.: 0.36106  
+##  Max.   :18.06234   Max.   :34.92751   Max.   :24.77296  
+##    ReturnApr         ReturnMay          ReturnJune      
+##  Min.   :-5.0227   Min.   :-4.96759   Min.   :-4.82957  
+##  1st Qu.:-0.4757   1st Qu.:-0.43045   1st Qu.:-0.45602  
+##  Median :-0.1104   Median :-0.06983   Median :-0.04354  
+##  Mean   : 0.0000   Mean   : 0.00000   Mean   : 0.00000  
+##  3rd Qu.: 0.3400   3rd Qu.: 0.35906   3rd Qu.: 0.37273  
+##  Max.   :14.6959   Max.   :42.69158   Max.   :10.84515  
+##    ReturnJuly         ReturnAug          ReturnSep       
+##  Min.   :-5.19139   Min.   :-5.60378   Min.   :-5.47078  
+##  1st Qu.:-0.51832   1st Qu.:-0.47163   1st Qu.:-0.39604  
+##  Median :-0.02372   Median :-0.07393   Median : 0.04767  
+##  Mean   : 0.00000   Mean   : 0.00000   Mean   : 0.00000  
+##  3rd Qu.: 0.47735   3rd Qu.: 0.39967   3rd Qu.: 0.42287  
+##  Max.   :17.33975   Max.   :27.14273   Max.   :39.05435  
+##    ReturnOct          ReturnNov       
+##  Min.   :-3.53719   Min.   :-4.31684  
+##  1st Qu.:-0.42176   1st Qu.:-0.43564  
+##  Median :-0.01891   Median :-0.01878  
+##  Mean   : 0.00000   Mean   : 0.00000  
+##  3rd Qu.: 0.37451   3rd Qu.: 0.42560  
+##  Max.   :31.25996   Max.   :17.18255</code></pre>
+<p>What is the mean of the ReturnJan variable in normTest?</p>
+<pre class="r"><code>summary(normTest)</code></pre>
+<pre><code>##    ReturnJan           ReturnFeb           ReturnMar       
+##  Min.   :-3.743836   Min.   :-3.251044   Min.   :-4.07731  
+##  1st Qu.:-0.485690   1st Qu.:-0.348951   1st Qu.:-0.40662  
+##  Median :-0.066856   Median :-0.006860   Median :-0.05674  
+##  Mean   :-0.000419   Mean   :-0.003862   Mean   : 0.00583  
+##  3rd Qu.: 0.357729   3rd Qu.: 0.264647   3rd Qu.: 0.35653  
+##  Max.   : 8.412973   Max.   : 9.552365   Max.   : 9.00982  
+##    ReturnApr          ReturnMay          ReturnJune      
+##  Min.   :-4.47865   Min.   :-5.84445   Min.   :-4.73628  
+##  1st Qu.:-0.51121   1st Qu.:-0.43819   1st Qu.:-0.44968  
+##  Median :-0.11414   Median :-0.05346   Median :-0.02678  
+##  Mean   :-0.03638   Mean   : 0.02651   Mean   : 0.04315  
+##  3rd Qu.: 0.32742   3rd Qu.: 0.42290   3rd Qu.: 0.43010  
+##  Max.   : 6.84589   Max.   : 7.21362   Max.   :29.00534  
+##    ReturnJuly          ReturnAug          ReturnSep       
+##  Min.   :-5.201454   Min.   :-4.62097   Min.   :-3.57222  
+##  1st Qu.:-0.512039   1st Qu.:-0.51546   1st Qu.:-0.38067  
+##  Median :-0.026576   Median :-0.10277   Median : 0.08215  
+##  Mean   : 0.006016   Mean   :-0.04973   Mean   : 0.02939  
+##  3rd Qu.: 0.457193   3rd Qu.: 0.38781   3rd Qu.: 0.45847  
+##  Max.   :12.790901   Max.   : 6.66889   Max.   : 7.09106  
+##    ReturnOct           ReturnNov        
+##  Min.   :-3.807577   Min.   :-4.881463  
+##  1st Qu.:-0.393856   1st Qu.:-0.396764  
+##  Median : 0.006783   Median :-0.002337  
+##  Mean   : 0.029672   Mean   : 0.017128  
+##  3rd Qu.: 0.419005   3rd Qu.: 0.424617  
+##  Max.   : 7.428466   Max.   :21.007786</code></pre>
+</div>
+<div id="problem-3.3---clustering-stocks" class="section level3">
+<h3>Problem 3.3 - Clustering Stocks</h3>
+<p>Why is the mean ReturnJan variable much closer to 0 in normTrain than in normTest?
+#### The distribution of the ReturnJan variable is different in the training and testing set</p>
+</div>
+<div id="problem-3.4---clustering-stocks" class="section level3">
+<h3>Problem 3.4 - Clustering Stocks</h3>
+<p>Set the random seed to 144 (it is important to do this again, even though we did it earlier). Run k-means clustering with 3 clusters on normTrain, storing the result in an object called km.</p>
+<pre class="r"><code>set.seed(144)
+km &lt;- kmeans(normTrain, centers = 3)</code></pre>
+<p>Which cluster has the largest number of observations?</p>
+<pre class="r"><code>table(km$cluster)</code></pre>
+<pre><code>## 
+##    1    2    3 
+## 3157 4696  253</code></pre>
+<p>Cluster 2</p>
+</div>
+<div id="problem-3.5---clustering-stocks" class="section level3">
+<h3>Problem 3.5 - Clustering Stocks</h3>
+<p>Recall from the recitation that we can use the flexclust package to obtain training set and testing set cluster assignments for our observations (note that the call to as.kcca may take a while to complete):</p>
+<pre class="r"><code>library(flexclust)</code></pre>
+<pre><code>## Loading required package: grid</code></pre>
+<pre><code>## Loading required package: modeltools</code></pre>
+<pre><code>## Loading required package: stats4</code></pre>
+<pre class="r"><code>km.kcca &lt;- as.kcca(km, normTrain)
+clusterTrain = predict(km.kcca)
+clusterTest = predict(km.kcca, newdata=normTest)</code></pre>
+<p>How many test-set observations were assigned to Cluster 2?</p>
+<pre class="r"><code>table(clusterTest)</code></pre>
+<pre><code>## clusterTest
+##    1    2    3 
+## 1298 2080   96</code></pre>
+<p>2080</p>
+</div>
+<div id="problem-4.1---cluster-specific-predictions" class="section level3">
+<h3>Problem 4.1 - Cluster-Specific Predictions</h3>
+<p>Using the subset function, build dataframes stocksTrain1, stocksTrain2, and stocksTrain3, containing the elements in the stocksTrain dataframe assigned to clusters 1, 2, and 3, respectively (be careful to take subsets of stocksTrain, not of normTrain). Similarly build stocksTest1, stocksTest2, and stocksTest3 from the stocksTest dataframe.</p>
+<pre class="r"><code>stocksTrain1 &lt;- subset(stocksTrain, clusterTrain == 1)
+stocksTrain2 &lt;- subset(stocksTrain, clusterTrain == 2)
+stocksTrain3 &lt;- subset(stocksTrain, clusterTrain == 3)
+stocksTest1 &lt;- subset(stocksTest, clusterTest == 1)
+stocksTest2 &lt;- subset(stocksTest, clusterTest == 2)
+stocksTest3 &lt;- subset(stocksTest, clusterTest == 3)</code></pre>
+<p>Which training set dataframe has the highest average value of the dependent variable?</p>
+<pre class="r"><code>mean(stocksTrain1$PositiveDec)</code></pre>
+<pre><code>## [1] 0.6024707</code></pre>
+<pre class="r"><code>mean(stocksTrain2$PositiveDec)</code></pre>
+<pre><code>## [1] 0.5140545</code></pre>
+<pre class="r"><code>mean(stocksTrain3$PositiveDec)</code></pre>
+<pre><code>## [1] 0.4387352</code></pre>
+<p>stocksTrain1</p>
+</div>
+<div id="problem-4.2---cluster-specific-predictions" class="section level3">
+<h3>Problem 4.2 - Cluster-Specific Predictions</h3>
+<p>Build logistic regression models StocksModel1, StocksModel2, and StocksModel3, which predict PositiveDec using all the other variables as independent variables. StocksModel1 should be trained on stocksTrain1, StocksModel2 should be trained on stocksTrain2, and StocksModel3 should be trained on stocksTrain3.</p>
+<pre class="r"><code>StocksModel1 &lt;- glm(PositiveDec ~ ., data = stocksTrain1, family = binomial)
+StocksModel2 &lt;- glm(PositiveDec ~ ., data = stocksTrain2, family = binomial)
+StocksModel3 &lt;- glm(PositiveDec ~ ., data = stocksTrain3, family = binomial)</code></pre>
+<p>Which variables have a positive sign for the coefficient in at least one of StocksModel1, StocksModel2, and StocksModel3 and a negative sign for the coefficient in at least one of StocksModel1, StocksModel2, and StocksModel3? Select all that apply.</p>
+<pre class="r"><code>StocksModel1$coefficients</code></pre>
+<pre><code>## (Intercept)   ReturnJan   ReturnFeb   ReturnMar   ReturnApr   ReturnMay 
+##  0.17223985  0.02498357 -0.37207369  0.59554957  1.19047752  0.30420906 
+##  ReturnJune  ReturnJuly   ReturnAug   ReturnSep   ReturnOct   ReturnNov 
+## -0.01165375  0.19769226  0.51272941  0.58832685 -1.02253506 -0.74847186</code></pre>
+<pre class="r"><code>StocksModel2$coefficients</code></pre>
+<pre><code>## (Intercept)   ReturnJan   ReturnFeb   ReturnMar   ReturnApr   ReturnMay 
+##   0.1029318   0.8845148   0.3176221  -0.3797811   0.4929105   0.8965492 
+##  ReturnJune  ReturnJuly   ReturnAug   ReturnSep   ReturnOct   ReturnNov 
+##   1.5008787   0.7831487  -0.2448602   0.7368522  -0.2775631  -0.7874737</code></pre>
+<pre class="r"><code>StocksModel3$coefficients</code></pre>
+<pre><code>##  (Intercept)    ReturnJan    ReturnFeb    ReturnMar    ReturnApr 
+## -0.181895809 -0.009789345 -0.046883260  0.674179495  1.281466189 
+##    ReturnMay   ReturnJune   ReturnJuly    ReturnAug    ReturnSep 
+##  0.762511555  0.329433917  0.774164370  0.982605385  0.363806823 
+##    ReturnOct    ReturnNov 
+##  0.782242086 -0.873752144</code></pre>
+<pre class="r"><code>rbind(StocksModel1$coefficients &gt; 0,
+      StocksModel2$coefficients &gt; 0,
+      StocksModel3$coefficients &gt; 0)</code></pre>
+<pre><code>##      (Intercept) ReturnJan ReturnFeb ReturnMar ReturnApr ReturnMay
+## [1,]        TRUE      TRUE     FALSE      TRUE      TRUE      TRUE
+## [2,]        TRUE      TRUE      TRUE     FALSE      TRUE      TRUE
+## [3,]       FALSE     FALSE     FALSE      TRUE      TRUE      TRUE
+##      ReturnJune ReturnJuly ReturnAug ReturnSep ReturnOct ReturnNov
+## [1,]      FALSE       TRUE      TRUE      TRUE     FALSE     FALSE
+## [2,]       TRUE       TRUE     FALSE      TRUE     FALSE     FALSE
+## [3,]       TRUE       TRUE      TRUE      TRUE      TRUE     FALSE</code></pre>
+<p>ReturnJan, ReturnFeb, ReturnMar, ReturnJune, ReturnAug, ReturnOct</p>
+</div>
+<div id="problem-4.3---cluster-specific-predictions" class="section level3">
+<h3>Problem 4.3 - Cluster-Specific Predictions</h3>
+<p>Using StocksModel1, make test-set predictions called PredictTest1 on the dataframe stocksTest1. Using StocksModel2, make test-set predictions called PredictTest2 on the dataframe stocksTest2. Using StocksModel3, make test-set predictions called PredictTest3 on the dataframe stocksTest3.</p>
+<pre class="r"><code>PredictTest1 &lt;- predict(StocksModel1, newdata = stocksTest1, type = &quot;response&quot;)
+PredictTest2 &lt;- predict(StocksModel2, newdata = stocksTest2, type = &quot;response&quot;)
+PredictTest3 &lt;- predict(StocksModel3, newdata = stocksTest3, type = &quot;response&quot;)</code></pre>
+<p>What is the overall accuracy of StocksModel1 on the test-set stocksTest1, using a threshold of 0.5?</p>
+<pre class="r"><code>table(stocksTest1$PositiveDec, PredictTest1 &gt;= 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    30  471
+##   1    23  774</code></pre>
+<pre class="r"><code>(30 + 774) / nrow(stocksTest1)</code></pre>
+<pre><code>## [1] 0.6194145</code></pre>
+<p>What is the overall accuracy of StocksModel2 on the test-set stocksTest2, using a threshold of 0.5?</p>
+<pre class="r"><code>table(stocksTest2$PositiveDec, PredictTest2 &gt;= 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0   388  626
+##   1   309  757</code></pre>
+<pre class="r"><code>(388 + 757) / nrow(stocksTest2)</code></pre>
+<pre><code>## [1] 0.5504808</code></pre>
+<p>What is the overall accuracy of StocksModel3 on the test-set stocksTest3, using a threshold of 0.5?</p>
+<pre class="r"><code>table(stocksTest3$PositiveDec, PredictTest3 &gt;= 0.5)</code></pre>
+<pre><code>##    
+##     FALSE TRUE
+##   0    49   13
+##   1    21   13</code></pre>
+<pre class="r"><code>(49 + 13) / nrow(stocksTest3)</code></pre>
+<pre><code>## [1] 0.6458333</code></pre>
+</div>
+<div id="problem-4.4---cluster-specific-predictions" class="section level3">
+<h3>Problem 4.4 - Cluster-Specific Predictions</h3>
+<p>To compute the overall test-set accuracy of the cluster-then-predict approach, we can combine all the test-set predictions into a single vector and all the true outcomes into a single vector:</p>
+<pre class="r"><code>AllPredictions &lt;- c(PredictTest1, PredictTest2, PredictTest3)
+AllOutcomes &lt;- c(stocksTest1$PositiveDec, 
+                 stocksTest2$PositiveDec, 
+                 stocksTest3$PositiveDec)</code></pre>
+<p>What is the overall test-set accuracy of the cluster-then-predict approach, again using a threshold of 0.5?</p>
+<pre class="r"><code>table(AllOutcomes, AllPredictions &gt;= 0.5)</code></pre>
+<pre><code>##            
+## AllOutcomes FALSE TRUE
+##           0   467 1110
+##           1   353 1544</code></pre>
+<pre class="r"><code>length(AllOutcomes)</code></pre>
+<pre><code>## [1] 3474</code></pre>
+<pre class="r"><code>(467 + 1544) / length(AllOutcomes)</code></pre>
+<pre><code>## [1] 0.5788716</code></pre>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>We see a modest improvement over the original logistic regression model. Since predicting stock returns is a notoriously hard problem, this is a good increase in accuracy. By investing in stocks for which we are more confident that they will have positive returns (by selecting the ones with higher predicted probabilities), this cluster-then-predict model can give us an edge over the original logistic regression model.</p>
+</div>
