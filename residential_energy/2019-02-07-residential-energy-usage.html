@@ -1,0 +1,244 @@
+---
+title: Energy Forecasting w/ Time Series Analysis
+author: Rihad Variawa
+date: '2019-02-07'
+slug: residential-energy-usage
+categories:
+  - R
+  - Machine Learning
+tags: []
+header:
+  image: "headers/energy_forecast.jpg"
+summary: 'Forcast monthly residential energy usage'
+---
+
+
+
+<div id="preamble" class="section level2">
+<h2>Preamble:</h2>
+<p>This document focuses on the time series analysis. A simple dataset of residential power usage from January 1998 to December 2013.</p>
+</div>
+<div id="research-question" class="section level2">
+<h2>Research question:</h2>
+<ol style="list-style-type: decimal">
+<li>through an analysis, model this data and monthly forecast for 2014</li>
+</ol>
+</div>
+<div id="structure-of-analysis" class="section level2">
+<h2>Structure of analysis:</h2>
+<ol style="list-style-type: decimal">
+<li>Exploratory Data Analysis</li>
+<li>Visualizations</li>
+<li>ACF and PACF</li>
+<li>Clean The Data</li>
+<li>Trend Preview</li>
+<li>Data Decomposition Plot</li>
+<li>Stationarity Test</li>
+<li>Model Data</li>
+<li>Transformation</li>
+<li>ARIMA Model</li>
+<li>Evaluation</li>
+<li>Box-Ljung Test</li>
+<li>Forecasting</li>
+<li>Model Accuracy</li>
+</ol>
+<pre class="r"><code>sourceURL &lt;- &quot;https://raw.githubusercontent.com/jzuniga123&quot;
+file &lt;- &quot;/SPS/master/DATA%20624/ResidentialCustomerForecastLoad-624.xlsx&quot;
+download.file(paste0(sourceURL, file), &quot;temp.xlsx&quot;, mode=&quot;wb&quot;)
+energy &lt;- xlsx::read.xlsx(&quot;temp.xlsx&quot;, sheetIndex=1, header=T)
+
+# the “YYYY-MMM” format dates are interpreted as factors. They must be converted to dates
+energy$YYYY.MMM &lt;- as.Date(paste0(energy$YYYY.MMM,&quot;-01&quot;), format = &quot;%Y-%b-%d&quot;)
+invisible(file.remove(&quot;temp.xlsx&quot;))</code></pre>
+</div>
+<div id="exploratory-data-analysis" class="section level2">
+<h2>Exploratory Data Analysis</h2>
+<pre class="r"><code>head(energy)</code></pre>
+<pre><code>##   CaseSequence   YYYY.MMM     KWH
+## 1          733 1998-01-01 6862583
+## 2          734 1998-02-01 5838198
+## 3          735 1998-03-01 5420658
+## 4          736 1998-04-01 5010364
+## 5          737 1998-05-01 4665377
+## 6          738 1998-06-01 6467147</code></pre>
+<pre class="r"><code># preview the class of the dataset
+class(energy)</code></pre>
+<pre><code>## [1] &quot;data.frame&quot;</code></pre>
+<pre class="r"><code>str(energy)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    192 obs. of  3 variables:
+##  $ CaseSequence: num  733 734 735 736 737 738 739 740 741 742 ...
+##  $ YYYY.MMM    : Date, format: &quot;1998-01-01&quot; &quot;1998-02-01&quot; ...
+##  $ KWH         : num  6862583 5838198 5420658 5010364 4665377 ...</code></pre>
+<pre class="r"><code># preview descriptive statistics on quantitative and qualitative variables
+summary(energy)</code></pre>
+<pre><code>##   CaseSequence      YYYY.MMM               KWH          
+##  Min.   :733.0   Min.   :1998-01-01   Min.   :  770523  
+##  1st Qu.:780.8   1st Qu.:2001-12-24   1st Qu.: 5429912  
+##  Median :828.5   Median :2005-12-16   Median : 6283324  
+##  Mean   :828.5   Mean   :2005-12-15   Mean   : 6502475  
+##  3rd Qu.:876.2   3rd Qu.:2009-12-08   3rd Qu.: 7620524  
+##  Max.   :924.0   Max.   :2013-12-01   Max.   :10655730  
+##                                       NA&#39;s   :1</code></pre>
+<pre class="r"><code># preview the periods between dates in dataset
+xts::periodicity(unique(energy$YYYY.MMM))</code></pre>
+<pre><code>## Monthly periodicity from 1998-01-01 to 2013-12-01</code></pre>
+<p>Dataframe spans monthly from January 1, 1998 to December 1, 2013.</p>
+<pre class="r"><code># preview observations in the dataframe that have no missing values
+energy[!complete.cases(energy), ]</code></pre>
+<pre><code>##     CaseSequence   YYYY.MMM KWH
+## 129          861 2008-09-01  NA</code></pre>
+<p>Dataframe contains one missing value in kWh usage.</p>
+</div>
+<div id="visualizations" class="section level2">
+<h2>Visualizations</h2>
+<pre class="r"><code># plots each observed value against the time of the observation, with a single line connecting each observation across the entire period
+kWh &lt;- xts::xts(energy$KWH, order.by=energy$YYYY.MMM)
+par(mfrow=c(2, 1), mar = c(3, 5, 0, 0), oma = c(0, 0, 0.5, 0.5))
+plot(kWh, main=&quot;kWh&quot;)
+
+# display frequency at which values in a vector occur
+hist(kWh, col=&quot;yellow&quot;, xlab=&quot;&quot;, main=&quot;&quot;)</code></pre>
+<p><img src="/post/residential_energy/2019-02-07-residential-energy-usage_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>Obervations:</p>
+<ul>
+<li>Line plot and Histogram shows an outlier around the three-quarter mark of the series.</li>
+</ul>
+</div>
+<div id="acf-and-pacf" class="section level2">
+<h2>ACF and PACF</h2>
+<pre class="r"><code>par(mfrow=c(2, 1), mar = c(3, 5, 0, 0), oma = c(0, 0, 0.5, 0.5))
+# ACF autocorrelations between each observation and its immediate predecessor (lagged observation)
+acf(na.omit(kWh), ylab=&quot;kWh&quot;, main=&quot;&quot;) 
+
+# PACF autocorrelations between the current observation and each individual lagged observation
+pacf(na.omit(kWh), ylab=&quot;kWh&quot;, main=&quot;&quot;)</code></pre>
+<p><img src="/post/residential_energy/2019-02-07-residential-energy-usage_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>ACF and PACF plots show autocorrelation between each observation and its immediate predecessor and autocorrelation between the current observation and other individual lagged observations.</li>
+</ul>
+</div>
+<div id="clean-the-data" class="section level2">
+<h2>Clean The Data</h2>
+<pre class="r"><code># data cleaning w/ forecast::tsclean() and converted to a time series object using the ts(). 
+# tsclean() function imputes nulls and removes outliers.
+# ts() function converts data to a time series object which is compatible with the forecast package.
+kWh &lt;- ts(forecast::tsclean(energy$KWH, replace.missing=T), 
+          frequency = 12, start=start(energy$YYYY.MMM)) # data sampled monthly = 12
+kWh[kWh==min(kWh)] &lt;- mean(kWh[kWh!=min(kWh)])</code></pre>
+</div>
+<div id="trend-preview" class="section level2">
+<h2>Trend Preview</h2>
+<p>A moving average smoother is helpful in examining what kind of trend is involved in a series. Moving average models should not be confused with moving average smoothing. A moving average model is used for forecasting future values while moving average smoothing is used for estimating the trend-cycle component of past values. The ma() function computes a simple moving average smoother of a given time series.</p>
+<pre class="r"><code>plot(kWh, col=8, xaxt = &quot;n&quot;, ylab=&quot;ATM1&quot;)
+lines(forecast::ma(kWh, order=6), col=6)  # pink line biannual period
+lines(forecast::ma(kWh, order=12), col=4) # blue line annual period</code></pre>
+<p><img src="/post/residential_energy/2019-02-07-residential-energy-usage_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>The 6-month and 12-month moving average smoother line shows that the data has a slight apparent trend.</li>
+</ul>
+</div>
+<div id="data-decomposition-plot" class="section level2">
+<h2>Data Decomposition Plot</h2>
+<p>Decomposes and plots the <strong>observed</strong> values, the underlying <strong>trend,</strong> <strong>seasonality,</strong> and <strong>randomness</strong> of the time series data.</p>
+<pre class="r"><code>plot(decompose(kWh), col=5)</code></pre>
+<p><img src="/post/residential_energy/2019-02-07-residential-energy-usage_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<p>Obseravations:</p>
+<ul>
+<li>Plotting the trend-cycle and seasonal indices computed by additive decomposition shows that the data have a slight apparent trend, seasonal fluctuations, and fairly random residuals.</li>
+</ul>
+</div>
+<div id="stationarity-test" class="section level2">
+<h2>Stationarity Test</h2>
+<div id="dickey_fuller-test" class="section level3">
+<h3>Dickey_Fuller Test</h3>
+<p>An augmented Dickey-Fuller unit root test evaluates if the data exhibit a Stationarity process with deterministic trend or a Stationarity process with stochastic trend.</p>
+<pre class="r"><code>tseries::adf.test(kWh)</code></pre>
+<pre><code>## Warning in tseries::adf.test(kWh): p-value smaller than printed p-value</code></pre>
+<pre><code>## 
+##  Augmented Dickey-Fuller Test
+## 
+## data:  kWh
+## Dickey-Fuller = -4.5454, Lag order = 5, p-value = 0.01
+## alternative hypothesis: stationary</code></pre>
+<p>The augmented Dickey-Fuller unit root test p-value is below α=0.05. Therefore, the null hypothesis that the data has unit roots is rejected. The data exhibit stochastic trend which suggests using regression (AR) in lieu of differencing. Autoregressive (AR) modeling acts like partial differencing when ϕ&lt;1. When ϕ=1 the AR(1) model is like a first-order difference.</p>
+</div>
+</div>
+<div id="model-data" class="section level2">
+<h2>Model Data</h2>
+<p>The <strong>train</strong> and <strong>test</strong> sets are created by referencing rows w/ index. The indexed rows for the testing set are a window at the end of the times series. The window sized for the test set is that of the desired prediction. The training set window is comprised of the indexes which are the complement of the test set indexes.</p>
+<pre class="r"><code>index_train &lt;- 1:(length(kWh) - 12)
+kWh_train &lt;- ts(kWh[index_train], frequency=12)
+kWh_test &lt;- ts(kWh[index_train], frequency=12)</code></pre>
+</div>
+<div id="transformation" class="section level2">
+<h2>Transformation</h2>
+<p>The Augmented Dickey-Fuller Test results support not differencing. Data can be seasonally adjusted for modeling and then reseasonalized for predictions. The modeling algorithm being used evaluates seasonal components and produces predictions that reflect the seasonality in the underlying data. Therefore, the data need not be seasonally adjusted. Heteroskedasticity refers to the circumstance in which the variability of a variable is unequal across the range of values of a second variable. Box-Cox transformations can help to stabilize the variance of a time series.</p>
+<pre class="r"><code>(lambda &lt;- forecast::BoxCox.lambda(kWh_train))</code></pre>
+<pre><code>## [1] -0.1733063</code></pre>
+<p>The Box-Cox transformation parameter suggested is about λ=−0.25. This rounded (slightly more interpretable) value is suggestive of an inverse quartic root. This Box-Cox transformation stabilizes the variance and makes the series relatively homoskedastic with equal variance.</p>
+</div>
+<div id="arima-model" class="section level2">
+<h2>ARIMA Model</h2>
+<p>The auto.arima() function chooses an ARIMA model automatically. It uses a variation of the Hyndman and Khandakar algorithm which combines unit root tests, minimization of the AICc, and MLE to obtain an ARIMA model. The function takes some short-cuts in order to speed up the computation and will not always yield the best model. Setting stepwise and approximation to FALSE prevents the function from taking short-cuts.</p>
+<pre class="r"><code>(fit &lt;- forecast::auto.arima(kWh_train, stepwise=F, approximation=F, d=0, lambda=lambda))</code></pre>
+<pre><code>## Series: kWh_train 
+## ARIMA(0,0,3)(2,1,0)[12] with drift 
+## Box Cox transformation: lambda= -0.1733063 
+## 
+## Coefficients:
+##          ma1     ma2     ma3     sar1     sar2  drift
+##       0.2807  0.0855  0.2232  -0.7724  -0.4408  1e-04
+## s.e.  0.0757  0.0823  0.0687   0.0742   0.0812  1e-04
+## 
+## sigma^2 estimated as 3.707e-05:  log likelihood=621.98
+## AIC=-1229.95   AICc=-1229.25   BIC=-1208.08</code></pre>
+<p>The auto.arima() function suggests an ARIMA(0,0,3)(2,1,0)12 model.</p>
+</div>
+<div id="evaluation" class="section level2">
+<h2>Evaluation</h2>
+<pre class="r"><code>par(mfrow=c(2, 1), mar = c(3, 5, 0, 0), oma = c(0, 0, 0.5, 0.5))
+acf(residuals(fit), ylab=&quot;ACF kWh&quot;); pacf(residuals(fit), ylab=&quot;PACF kWh&quot;)</code></pre>
+<p><img src="/post/residential_energy/2019-02-07-residential-energy-usage_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>The residuals of the model appear to display the characteristics of White Noise in both the ACF and PACF plots. None of the residuals are significant. At a 95% confidence interval this is well within probabilistic expectations.</li>
+</ul>
+</div>
+<div id="box-ljung-test" class="section level2">
+<h2>Box-Ljung Test</h2>
+<p>The Box-Ljung test is helpful in assessing if data follow a White Noise pattern. The ARIMA attribute of the fitted model returns a vector containing the ARIMA model parameters p,q,P,Q,periods,d and D; in that order.</p>
+<pre class="r"><code>Box.test(residuals(fit), lag=7, fitdf=sum(fit$arma[1:2]), type=&quot;Ljung-Box&quot;)</code></pre>
+<pre><code>## 
+##  Box-Ljung test
+## 
+## data:  residuals(fit)
+## X-squared = 7.2523, df = 4, p-value = 0.1231</code></pre>
+<p>The null hypothesis of independence is not rejected. The Box-Ljung shows that the autocorrelations of the residuals from the model are not significantly different from zero at α=0.05. The residuals of the model displays the characteristics of White Noise. The model passes the required checks and is therefore suitable for forecasting.</p>
+</div>
+<div id="forecasting" class="section level2">
+<h2>Forecasting</h2>
+<p>Forecasts are done using the forecast::forecast() function. Since the data was not seasonally adjusted, they need not be reseasonalized prior to forecast.</p>
+<pre class="r"><code>fcast &lt;- forecast::forecast(fit, h=15)
+plot(fcast, ylab=&quot;kWh&quot;, main=&quot;kWh Predictions&quot;, xaxt=&quot;n&quot;)
+lines(lag(kWh_test, -length(kWh_train)), col=6)</code></pre>
+<p><img src="/post/residential_energy/2019-02-07-residential-energy-usage_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>The prediction appears to produce a useful forecasts that reflect patterns in the original data.</li>
+<li>Prediction point estimates are represented by a blue line, prediction intervals are represented by blue bands, and actual values are represented by a pink line.</li>
+</ul>
+</div>
+<div id="model-accuracy" class="section level2">
+<h2>Model Accuracy</h2>
+<p>The accuracy() function is helpful for obtaining summary measures of the forecast accuracy: Mean Error (ME), Root Mean Squared Error (RMSE), Mean Absolute Error (MAE), Mean Percentage Error (MPE), Mean Absolute Percentage Error (MAPE), Mean Absolute Scaled Error (MASE), and Autocorrelation of errors at lag 1 (ACF1).</p>
+<pre class="r"><code>round(forecast::accuracy(fcast, length(kWh_test)), 3)</code></pre>
+<pre><code>##                       ME      RMSE       MAE          MPE        MAPE
+## Training set    39449.18  581186.1  456353.6        0.056       7.067
+## Test set     -9046871.23 9046871.2 9046871.2 -5026039.573 5026039.573
+##               MASE  ACF1
+## Training set 0.413 0.115
+## Test set     8.185    NA</code></pre>
+<p>These accuracy for the predications is fair. The large metrics are representative of the large values found in the data.</p>
+</div>

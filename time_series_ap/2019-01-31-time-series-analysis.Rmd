@@ -1,0 +1,229 @@
+---
+title: Time Series Analysis
+author: Rihad Variawa
+date: '2019-01-31'
+slug: time-series-analysis
+categories:
+  - Machine Learning
+  - R
+tags: []
+header:
+  image: "headers/airline.jpg"
+summary: 'Time Series Forecast of airline passengers'
+---
+
+## Preamble:
+
+This document focuses on the analysis of the airpassengers dataframe.
+
+The AirPassenger dataset in R provides monthly totals of US airline passengers, from 1949 to 1960.
+
+Description of dataframe airpassengers can be found at https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/airpassengers.html
+
+## Research question:
+
+1. through analysis and modelling, preview a time series forecast 
+
+## Structure of analysis:
+
+I will asssess whether a linear regression or arima model is a best fit for the time series forecast as follows:
+
+1. Exploratory data analysis
+2. Data decomposition
+3. Stationarity test
+4. Fit a model using an algorithm
+5. Forecasting
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## install packages if necessary
+list.of.packages <- c("ggfortify", "tseries", "forecast", "rmarkdown")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+## load packages
+library(ggfortify)
+library(tseries)
+library(forecast)
+library(rmarkdown)
+```
+
+```{r}
+data(AirPassengers)
+AP <- AirPassengers
+# Take a look at the class of the dataset AirPassengers
+class(AP)
+```
+
+The dataset is already of a time series class.
+
+### Exploratory data analysis
+
+```{r}
+# preview of data
+AP
+```
+
+Passenger numbers in ('000) per month for the relevant years.
+
+```{r}
+# test for missing values
+sum(is.na(AP))
+```
+
+Zero missing values GREAT!
+
+```{r}
+# test frequency
+frequency(AP)
+```
+
+12 calendar months.
+
+```{r}
+# test cycle
+cycle(AP)
+```
+
+```{r}
+# dataset summary
+summary(AP)
+```
+
+Statistical values.
+
+```{r}
+# plot the raw data using the base plot function
+autoplot(AP) + labs(x="Time", y ="Passenger numbers ('000)", title="Air Passengers from 1949 to 1961") +
+  theme_classic()
+```
+
+```{r}
+boxplot(AP~cycle(AP), xlab="Passenger Numbers ('000)", ylab="Months", col=rgb(0.1,0.9,0.3,0.4), main="Monthly Air Passengers Boxplot from 1949 to 1961", horizontal=TRUE, notch=FALSE)
+```
+
+Observations:
+
+* The passenger numbers increase over time with each year which may be indicative of an increasing linear trend. Possible due to an increase in demand for flights and commercialisation of airlines in that time period.
+* The boxplot shows more passengers travelling in months 6 to 9 with higher averages and higher variances than the other months, indicating seasonality within an apparent cycle of 12 months. The rationale for this could be more people taking holidays and fly over the summer months in the US.
+* The dataset appears to be a multiplicative time series, since passenger numbers increase, with a pattern of seasonality.
+* There do not appear to be any outliers and there are no missing values. 
+
+### Data decomposition
+
+I'll decompose the time series for estimates of trend, seasonal, and random components using moving average method.
+
+The multiplicative model is:
+
+Y[t]=T[t]∗S[t]∗e[t]
+
+where
+
+Y(t) is the number of passengers at time t,
+T(t) is the trend component at time t,
+S(t) is the seasonal component at time t,
+e(t) is the random error component at time t.
+
+```{r}
+decomposeAP <- decompose(AP,"multiplicative")
+autoplot(decomposeAP) +
+  theme_classic()
+```
+
+Observations:
+
+* In these decomposed plots we can again see the trend and seasonality as inferred previously, but we can also observe the estimation of the random component depicted under the “remainder”.
+
+### Stationarity test
+
+A stationary time series has the conditions that the mean, variance and covariance are not functions of time. In order to fit arima models, the time series is required to be stationary. I'll use two methods to test the stationarity.
+
+1. Test stationarity of the time series (ADF)
+
+In order to test the stationarity of the time series, let’s run the Augmented Dickey-Fuller (ADF) Test. using the adf.test function from the tseries R package.
+
+First set the hypothesis test:
+
+The null hypothesis: that the time series is non stationary
+The alternative hypothesis: that the time series is stationary
+
+```{r}
+adf.test(AP)
+```
+
+As a rule of thumb, where the p-value is less than 5%, we reject the null hypothesis. As the p-value is 0.01 which is less than 0.05 we reject the null in favour of the alternative hypothesis that the time series is stationary.
+
+2. Test stationarity of the time series (Autocorrelation)
+
+Another way to test for stationarity is to use autocorrelation. I'll use autocorrelation function (acf). This function plots the correlation between a series and its lags ie previous observations with a 95% confidence interval in blue. If the autocorrelation crosses the dashed blue line, it means that specific lag is significantly correlated with current series.
+
+```{r}
+autoplot(acf(AP, plot=FALSE)) + labs(title="Correlogram of Air Passengers from 1949 to 1961") +
+  theme_classic()
+```
+
+Observations:
+
+* The maximum at lag 1 or 12 months, indicates a positive relationship with the 12 month cycle.
+
+Since we have already created the decomposeAP list object with a random component, we can plot the acf of the decomposeAP$random.
+
+```{r}
+# review random time series for any missing values
+decomposeAP$random 
+```
+
+```{r}
+# autoplot the random time series from 7:138 which exclude the NA values
+autoplot(acf(decomposeAP$random[7:138], plot=FALSE)) + labs(title="Correlogram of Air Passengers Random Component from 1949 to 1961") +
+  theme_classic()
+```
+
+Observations:
+
+* acf of the residuals are centered around zero.
+
+### Fit a model using an algorithm
+
+**1. Linear regression Model**
+
+Given there is an upwards trend we'll look at a linear model first for comparison. 
+
+```{r}
+autoplot(AP) + geom_smooth(method="lm") + labs(x="Time", y="Passenger numbers ('000)", title="Air Passengers from 1949 to 1961") +
+  theme_classic()
+```
+
+Observations:
+
+* This may not be the best model to fit as it doesn’t capture the seasonality and multiplicative effects over time.
+
+**2. ARIMA Model**
+
+Using the auto.arima function from the forecast R package to fit the best model and coefficients, given the default parameters including seasonality as TRUE.
+
+```{r}
+arimaAP <- auto.arima(AP)
+arimaAP
+```
+
+The ARIMA(2,1,1)(0,1,0)[12] model parameters are lag 1 differencing (d), an autoregressive term of second lag (p) and a moving average model of order 1 (q). Then the seasonal model has an autoregressive term of first lag (D) at model period 12 units, in this case months.
+
+```{r}
+ggtsdiag(arimaAP) +
+  theme_classic()
+```
+
+Observations:
+
+* The residual plots appear to be centered around 0 as noise, with no pattern. The arima model is a fairly good fit.
+
+### Forcasting
+
+Plot a forecast of the time series using the forecast function, again from the forecast R package, with a 95% confidence interval where h is the forecast horizon periods in months.
+
+```{r}
+forecastAP <- forecast(arimaAP, level = c(95), h = 36)
+autoplot(forecastAP) + labs(x="Time", y="Passenger numbers ('000)") +
+  theme_classic()
+```

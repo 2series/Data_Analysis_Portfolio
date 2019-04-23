@@ -1,0 +1,169 @@
+---
+title: NYC_Fights13
+author: Rihad Variawa
+date: '2019-03-27'
+slug: nyc-fights13
+categories:
+  - R
+header:
+  image: "headers/im.jpg"
+tags:
+  - plot
+image:
+  caption: ''
+  focal_point: ''
+---
+
+```{r setup, include=FALSE}
+## install packages if necessary
+list.of.packages <- c("ggplot2", "dplyr", "ggthemes", "knitr", "rmarkdown", "tidyr")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+## load packages
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+library(knitr)
+library(rmarkdown)
+library(tidyr)
+library("nycflights13")     
+install.packages("nycflights13")
+```
+
+## About the dataset
+
+In this analysis, we explore the dplyr functions used to ask interesting questions of a more complex dataset We’ll use a dataset of flights that departed from New York city airports (including Newark, John F. Kennedy, and Laguardia airports) in 2013. This dataset is also featured online in the Introduction to dplyr vignette, and is drawn from the Bureau of Transportation Statistics database.
+
+This dataset will use over 300,000 observations to ask the following questions:
+
+* Which airline has the highest number of delayed departures?
+* On average, to which airport do flights arrive most early?
+* In which month do flights tend to have the longest delays?
+
+### get to know the dataframe
+
+```{r}
+## check the number of rows/columns
+dim(flights)
+## inspect the column names
+colnames(flights) 
+```
+
+### Identify the airline (`carrier`) that has the highest number of delayed flights
+
+```{r}
+## start with the flights
+has_most_delays <- flights %>%
+  ## group by airline (carrier)
+  group_by(carrier) %>%                    
+  ## find only the delays
+  filter(dep_delay > 0) %>%               
+  ## count the observations
+  summarize(num_delay = n()) %>%           
+  ## find most delayed
+  filter(num_delay == max(num_delay)) %>%  
+  ## select the airline
+  select(carrier)                          
+```
+
+### Get name of the most delayed carrier
+
+```{r}
+## start with the previous answer
+most_delayed_name <- has_most_delays %>%   
+  ## join on airline ID
+  left_join(airlines, by = "carrier") %>%  
+  ## select the airline name
+  select(name)                             
+```
+
+```{r}
+## access the value from the tibble
+print(most_delayed_name$name)
+```
+
+### Calculate the average arrival delay (`arr_delay`) for each destination (`dest`)
+
+```{r}
+most_early <- flights %>%
+  ## group by destination
+  group_by(dest) %>%                     
+  ## compute mean delay
+  summarize(delay = mean(arr_delay))     
+```
+
+### # Compute the average delay by destination airport, omitting NA results
+
+```{r}
+most_early <- flights %>%
+  ## group by destination
+  group_by(dest) %>%                                 
+  ## compute mean delay
+  summarize(delay = mean(arr_delay, na.rm = TRUE))   
+```
+
+### Identify the destination where flights, on average, arrive most early
+
+```{r}
+most_early <- flights %>%
+  ## group by destination
+  group_by(dest) %>%                                      
+  ## compute mean delay, ignore NA
+  summarize(delay = mean(arr_delay, na.rm = TRUE)) %>%    
+  ## filter for the *least* delayed
+  filter(delay == min(delay, na.rm = TRUE)) %>%           
+  ## select the destination (and delay to store it)
+  select(dest, delay) %>%                                 
+  ## join on `airports`dataframe
+  left_join(airports, by = c("dest" = "faa")) %>%         
+  ## select output variables of interest
+  select(dest, name, delay)                               
+```
+
+```{r}
+print(most_early)
+```
+
+### Identify the month in which flights tend to have the longest delays
+
+```{r}
+flights %>%
+  ## group by selected feature
+  group_by(month) %>%                                      
+  ## summarize value of interest
+  summarize(delay = mean(arr_delay, na.rm = TRUE)) %>%     
+  ## filter for the record of interest
+  filter(delay == max(delay)) %>%                          
+  ## select the column that answers the question
+  select(month) %>%                                        
+  ## print the tibble out directly
+  print()                                                  
+```
+
+### Compute delay by month, adding month names for visual display, note 'month.name' is a variable build into R
+
+```{r}
+delay_by_month <- flights %>%
+  group_by(month) %>%
+  summarize(delay = mean(arr_delay, na.rm = TRUE)) %>%
+  select(delay) %>%
+  mutate(month = month.name)
+```
+
+### # Create a plot using the ggplot2 package
+
+```{r}
+ggplot(data = delay_by_month) +
+  geom_point(
+    mapping = aes(x = delay, y = month), 
+    color = "blue",
+    alpha = .4, 
+    size = 3
+    ) +
+  geom_vline(xintercept = 0, size = .25) +
+  xlim(c(-20, 20)) +
+  scale_y_discrete(limits = rev(month.name)) +
+  theme_classic() +
+  labs(title = "Average Delay by Month", y = "", x = "Delay (minutes)")
+```

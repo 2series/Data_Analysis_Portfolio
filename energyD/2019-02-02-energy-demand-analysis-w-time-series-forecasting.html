@@ -1,0 +1,297 @@
+---
+title: Energy Demand Analysis w/ Time Series Forecasting
+author: Rihad Variawa
+date: '2019-02-02'
+slug: energy-demand-analysis-w-time-series-forecasting
+categories:
+  - Machine Learning
+  - R
+tags: []
+header:
+  image: 'headers/energyD.jpg'
+summary: 'Energy Demand Forecasting'
+---
+
+
+
+<div id="references" class="section level1">
+<h1>References:</h1>
+<ul>
+<li>R. H. Shumway, D. S. Stoffer. <em>Time Series Analysis and Its Applications</em>. 2010.</li>
+<li>R. J. Hyndman. <em>Forecasting: principles and practice</em>. 2013.</li>
+<li>P. S. P. Cowpertwait, A. V. Metcalfe. <em>Introductory Time Series with R</em>. 2009.</li>
+</ul>
+<div id="preamble" class="section level2">
+<h2>Preamble:</h2>
+<p>This document focuses on an analysis of the energy demands of a European country.</p>
+<p>The dataset of the daily energy needs (in GWh) between 2004 and 2010.</p>
+</div>
+<div id="reseach-questions" class="section level2">
+<h2>Reseach questions:</h2>
+<ol style="list-style-type: decimal">
+<li>build a model for energy demand forecasting using time series analysis.</li>
+</ol>
+</div>
+<div id="structure-of-analysis" class="section level2">
+<h2>Structure of analysis:</h2>
+<p>A time series forecast using the arima model as follows:</p>
+<ol style="list-style-type: decimal">
+<li>Exploratory data analysis</li>
+<li>Data decomposition</li>
+<li>seasonal ARIMA model</li>
+<li>Forecast model</li>
+</ol>
+<pre class="r"><code>sourceURL &lt;- &#39;https://gist.githubusercontent.com/Peque/715e91350f0e68e3342f/raw/d28312ac0e49888a5079fcea188770acaf3aa4a2/mme.csv&#39;</code></pre>
+<pre class="r"><code># download and load data into memory
+tmp &lt;- tempfile()
+download.file(sourceURL, tmp, method = &#39;curl&#39;)
+df &lt;- read.csv(tmp)
+unlink(tmp)</code></pre>
+</div>
+<div id="exploratory-data-analysis" class="section level2">
+<h2>Exploratory data analysis</h2>
+<pre class="r"><code>head(df)</code></pre>
+<pre><code>##       date demand
+## 1 01-01-04 488.07
+## 2 02-01-04 582.02
+## 3 03-01-04 575.58
+## 4 04-01-04 542.39
+## 5 05-01-04 600.26
+## 6 06-01-04 544.76</code></pre>
+<pre class="r"><code># convert date strings to POSIX dates
+df$date &lt;- strptime(df$date, format = &#39;%d-%m-%y&#39;)
+# day of week
+df$day &lt;- as.factor(strftime(df$date, format = &#39;%A&#39;))
+# day of year
+df$yearday &lt;- as.factor(strftime(df$date, format = &#39;%m%d&#39;))
+# structure for analysis
+str(df)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    3288 obs. of  4 variables:
+##  $ date   : POSIXlt, format: &quot;2004-01-01&quot; &quot;2004-01-02&quot; ...
+##  $ demand : num  488 582 576 542 600 ...
+##  $ day    : Factor w/ 7 levels &quot;Friday&quot;,&quot;Monday&quot;,..: 5 1 3 4 2 6 7 5 1 3 ...
+##  $ yearday: Factor w/ 366 levels &quot;0101&quot;,&quot;0102&quot;,..: 1 2 3 4 5 6 7 8 9 10 ...</code></pre>
+<pre class="r"><code># df split to create test set
+df_test &lt;- subset(df, date &gt;= strptime(&#39;01-01-2011&#39;, format = &#39;%d-%m-%Y&#39;))
+df &lt;- subset(df, date &lt; strptime(&#39;01-01-2011&#39;, format = &#39;%d-%m-%Y&#39;))
+ts &lt;- ts(df$demand, frequency = 1)</code></pre>
+<pre class="r"><code># df and time series objects
+demandts &lt;- xts(df$demand, df$date)
+plot(demandts, main = &#39;Energy Demand Preview&#39;, xlab = &#39;Time&#39;, ylab = &#39;Demand (GWh)&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>A seasonal dependency of demand can be easily spotted in the graphics, although there are other factors that may affect the results, such as the temperature, holidays, weekends, etc..</li>
+</ul>
+<pre class="r"><code># demand by day of the week
+ggplot(df, aes(day, demand)) +
+  geom_boxplot(fill=&#39;slateblue&#39;, alpha=0.2) + xlab(&#39;Time&#39;) + ylab(&#39;Demand (GWh)&#39;) + ggtitle(&#39;Demand per day of the week&#39;) +
+  theme_classic()</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>During weekends, the demand decreases considerably compared to the rest of the week days.</li>
+</ul>
+<pre class="r"><code># aggregating demand by day of the year (average)
+avg_demand_per_yearday &lt;- aggregate(demand ~ yearday, df, &#39;mean&#39;)
+
+# computing the smooth curve for the time series. Data is replicated before computing the curve in order to achieve continuity
+smooth_yearday &lt;- rbind(avg_demand_per_yearday, avg_demand_per_yearday, avg_demand_per_yearday, avg_demand_per_yearday, avg_demand_per_yearday)
+smooth_yearday &lt;- lowess(smooth_yearday$demand, f = 1 / 45)
+l &lt;- length(avg_demand_per_yearday$demand)
+l0 &lt;- 2 * l + 1
+l1 &lt;- 3 * l
+smooth_yearday &lt;- smooth_yearday$y[l0:l1]
+
+# plotting results
+par(mfrow = c(1, 1))
+
+# setting year to 2000 to allow existence of 29th February
+dates &lt;- as.Date(paste(levels(df$yearday), &#39;2000&#39;), format = &#39;%m%d%Y&#39;)
+plot(dates, avg_demand_per_yearday$demand, type = &#39;l&#39;, main = &#39;Average Daily Demand&#39;, xlab = &#39;Time&#39;, ylab = &#39;Demand (GWh)&#39;)
+lines(dates, smooth_yearday, col = &#39;yellow&#39;, lwd = 2)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>During the winter &amp; summer seasons the demand is clearly higher exept for, vacation periods. Holydays are also easily spotted in the graphics, being the lowest peaks of demand.</li>
+</ul>
+<pre class="r"><code>par(mfrow = c(1, 2))
+diff &lt;- avg_demand_per_yearday$demand - smooth_yearday
+abs_diff &lt;- abs(diff)
+barplot(diff[order(-abs_diff)], main = &#39;Smoothing error&#39;, ylab = &#39;Error&#39;)
+boxplot(diff, main = &#39;Smoothing error&#39;, ylab = &#39;Error&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>The graphics show the errors. Notice how the biggest errors are all negative.</li>
+</ul>
+<pre class="r"><code>head(strftime(dates[order(-abs_diff)], format = &#39;%B %d&#39;), 10)</code></pre>
+<pre><code>##  [1] &quot;January 01&quot;  &quot;December 25&quot; &quot;May 01&quot;      &quot;January 06&quot;  &quot;August 15&quot;  
+##  [6] &quot;December 08&quot; &quot;December 31&quot; &quot;October 12&quot;  &quot;November 01&quot; &quot;December 26&quot;</code></pre>
+<p>The exact dates which are generating these errors are indeed, holidays or the day just before holidays (as is the case for the 25th November and 31th Devember).</p>
+<pre class="r"><code>par(mfrow = c(2, 2))
+acf(df$demand, 100, main = &#39;Autocorrelation&#39;)
+acf(df$demand, 1500, main = &#39;Autocorrelation&#39;)
+pacf(df$demand, 100, main = &#39;Partial autocorrelation&#39;)
+pacf(df$demand, 1500, main = &#39;Partial autocorrelation&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>The autocorrelation function shows a highly autocorrelated seasonal non-stationary process with, as expected, yearly and weekly cicles. The ACF alone, however, tells us little about the orders of dependence for ARMIA or AR processes. The PACF is better for AR models, and also shows the weekly and yearly seasons, although the correlation is lost faster with the lag.</li>
+</ul>
+</div>
+<div id="data-decomposition" class="section level2">
+<h2>Data decomposition</h2>
+<p>I’ll decompose the time series for estimates of trend, seasonal, and random components using moving average method.</p>
+<p>The model is:</p>
+<p>Y[t]=T[t]∗S[t]∗e[t]</p>
+<p>where</p>
+<p>Y(t) is the number of weeks at time t,
+T(t) is the trend component at time t,
+S(t) is the seasonal component at time t,
+e(t) is the random error component at time t.</p>
+<pre class="r"><code># decomposition of weekly seasonal time series
+wts &lt;- ts(ts, frequency = 7)
+dec_wts &lt;- decompose(wts)
+plot(dec_wts)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<pre class="r"><code># demand minus week seasonal
+df$demand_mws &lt;- df$demand - as.numeric(dec_wts$season)</code></pre>
+<pre class="r"><code># decomposition of yearly time series
+yts &lt;- ts(subset(df, yearday != &#39;0229&#39;)$demand_mws, frequency = 365)
+dec_yts &lt;- decompose(yts)
+plot(dec_yts)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-14-1.png" width="672" />
+Observations:</p>
+<ul>
+<li>Decomposition of the yearly seasonal time series. 29th February days are excluded for frequency matching. The time series is formed out of the original observation minus the weekly seasonal data.</li>
+</ul>
+<pre class="r"><code>days365 &lt;- which(df$yearday != &#39;0229&#39;)
+february29ths &lt;- which(df$yearday == &#39;0229&#39;)
+df$demand_mwys[days365] &lt;- df$demand_mws[days365] - as.numeric(dec_yts$season)
+# Fill values on February 29th
+df$demand_mwys[february29ths] &lt;- df$demand_mws[february29ths]</code></pre>
+<pre class="r"><code># form new ts from original observations less the weekly and yearly seasonal data
+par(mfrow = c(1, 1))
+ts_mwys &lt;- ts(df$demand_mwys, frequency = 1)
+demandts_mwys &lt;- xts(df$demand_mwys, df$date)
+plot(demandts_mwys, main = &#39;Energy Demand Less Seasonal Data&#39;, xlab = &#39;Time&#39;, ylab = &#39;Demand (GWh)&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
+<pre class="r"><code># aggregating demand by day of the year (average)
+avg_demand_mwys_per_yearday &lt;- aggregate(demand_mwys ~ yearday, df, &#39;mean&#39;)
+
+# computing the smooth curve for the time series. Data is replicated before computing the curve in order to achieve continuity
+smooth_yearday &lt;- rbind(avg_demand_mwys_per_yearday, avg_demand_mwys_per_yearday, avg_demand_mwys_per_yearday, avg_demand_mwys_per_yearday, avg_demand_mwys_per_yearday)
+smooth_yearday &lt;- lowess(smooth_yearday$demand_mwys, f = 1 / 45)
+l &lt;- length(avg_demand_mwys_per_yearday$demand_mwys)
+l0 &lt;- 2 * l + 1
+l1 &lt;- 3 * l
+smooth_yearday &lt;- smooth_yearday$y[l0:l1]
+
+# plotting the result
+par(mfrow = c(1, 1))
+
+# setting year to 2000 to allow existence of 29th February
+dates &lt;- as.Date(paste(levels(df$yearday), &#39;2000&#39;), format = &#39;%m%d%Y&#39;)
+plot(dates, avg_demand_mwys_per_yearday$demand_mwys, type = &#39;l&#39;, main = &#39;Mean Daily Demand&#39;, xlab = &#39;Time&#39;, ylab = &#39;Demand (GWh)&#39;)
+lines(dates, smooth_yearday, col = &#39;yellow&#39;, lwd = 2)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<pre class="r"><code>par(mfrow = c(1, 2))
+diff &lt;- avg_demand_mwys_per_yearday$demand_mwys - smooth_yearday
+abs_diff &lt;- abs(diff)
+barplot(diff[order(-abs_diff)], main = &#39;Smoothing error&#39;, ylab = &#39;Error&#39;)
+boxplot(diff, main = &#39;Smoothing error&#39;, ylab = &#39;Error&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-18-1.png" width="672" /></p>
+<p>Observations:</p>
+<ul>
+<li>Plotting the average daily demand of the demand less the seasonal data shows a new error rate much lower than the one seen before.</li>
+</ul>
+<pre class="r"><code># new acf and pacf created
+par(mfrow = c(1, 2))
+acf(df$demand_mwys, 100, main = &#39;Autocorrelation&#39;)
+pacf(df$demand_mwys, 100, main = &#39;Partial autocorrelation&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+</div>
+<div id="seasonal-arima-model" class="section level2">
+<h2>seasonal ARIMA model</h2>
+<p>The initial ARIMA parameters have been found using the R <span class="math inline">\(auto.arima()\)</span> function. The differencing parameter <span class="math inline">\(d\)</span> is selected using the KPSS test. If the null hypothesis of stationarity is accepted when the KPSS is applied to the original time series, then <span class="math inline">\(d = 0\)</span>. Otherwise, the series is differenced until the KPSS accepts the null hypothesis. After that, <span class="math inline">\(p\)</span> and <span class="math inline">\(q\)</span> are selected using either AIC or BIC. The SARIMA model has been created using those ARIMA parameters.</p>
+<pre class="r"><code>model &lt;- Arima(ts, order = c(2, 1, 2), list(order = c(1, 1, 1), period = 7))</code></pre>
+<pre class="r"><code># forecast the error w/ test dataframe
+auxts &lt;- ts
+auxmodel &lt;- model
+errs &lt;- c()
+pred &lt;- c()
+perc &lt;- c()
+for (i in 1:nrow(df_test)) {
+  p &lt;- as.numeric(predict(auxmodel, newdata = auxts, n.ahead = 1)$pred)
+  pred &lt;- c(pred, p)
+  errs &lt;- c(errs, p - df_test$demand[i])
+  perc &lt;- c(perc, (p - df_test$demand[i]) / df_test$demand[i])
+  auxts &lt;- ts(c(auxts, df_test$demand[i]), frequency = 7)
+  auxmodel &lt;- Arima(auxts, model = auxmodel)
+}
+par(mfrow = c(1, 1))
+plot(errs, type = &#39;l&#39;, main = &#39;Error in the forecast&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
+<pre class="r"><code>plot(pred, type = &#39;l&#39;, main = &#39;Real vs. Forecast&#39;, col = &#39;green&#39;)
+lines(df_test$demand)
+legend(&#39;topright&#39;, c(&#39;Real&#39;, &#39;Forecast&#39;), lty = 1, col = c(&#39;black&#39;, &#39;green&#39;))</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
+<pre class="r"><code>abserr &lt;- mean(abs(errs))
+percerr &lt;- mean(abs(perc)) * 100
+percerr</code></pre>
+<pre><code>## [1] 2.299037</code></pre>
+<p>Mean error across test datadrame <strong>(2.3%)</strong>.</p>
+<pre class="r"><code># special days present less demand than others. Those days may be taken into account in order to reduce the error
+specialday &lt;- function(day) {
+  correction = 0
+  if (format(day, &#39;%m%d&#39;) %in% c(&#39;0101&#39;, &#39;0501&#39;, &#39;0106&#39;, &#39;0815&#39;, &#39;1012&#39;, &#39;1101&#39;, &#39;1206&#39;, &#39;1208&#39;, &#39;1224&#39;, &#39;1225&#39;, &#39;1226&#39;, &#39;1231&#39;))
+      correction = -100
+  else if (format(day, &#39;%m%d&#39;) %in% c(&#39;0319&#39;))
+    correction = -50
+
+# on Sunday, do not apply correction
+  if (as.factor(strftime(day, format = &#39;%A&#39;)) == &#39;Sunday&#39;)
+    return(0)
+  return(correction)
+}
+
+model &lt;- Arima(ts, order = c(2, 1, 2), list(order = c(1, 1, 1), period = 7))
+auxts &lt;- ts
+auxmodel &lt;- model
+errs &lt;- c()
+pred &lt;- c()
+perc &lt;- c()
+for (i in 1:nrow(df_test)) {
+  p &lt;- as.numeric(predict(auxmodel, newdata = auxts, n.ahead = 1)$pred)
+  correction = specialday(df_test$date[i])
+  pred &lt;- c(pred, p + correction)
+  errs &lt;- c(errs, p + correction - df_test$demand[i])
+  perc &lt;- c(perc, (p + correction - df_test$demand[i]) / df_test$demand[i])
+  if (!correction)
+    auxts &lt;- ts(c(auxts, df_test$demand[i]), frequency = 7)
+  else
+    auxts &lt;- ts(c(auxts, p), frequency = 7)
+  auxmodel &lt;- Arima(auxts, model = auxmodel)
+}
+par(mfrow = c(1, 1))
+plot(errs, type = &#39;l&#39;, main = &#39;Error in the forecast&#39;)</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+<pre class="r"><code>plot(pred, type = &#39;l&#39;, main = &#39;Real vs. Forecast&#39;, col = &#39;green&#39;)
+lines(df_test$demand)
+legend(&#39;topright&#39;, c(&#39;Real&#39;, &#39;Forecast&#39;), lty = 1, col = c(&#39;black&#39;, &#39;green&#39;))</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-25-1.png" width="672" /></p>
+<pre class="r"><code>abserr &lt;- mean(abs(errs))
+percerr &lt;- mean(abs(perc)) * 100
+percerr</code></pre>
+<pre><code>## [1] 1.956568</code></pre>
+<p>Mean error across test dataframe <strong>(1,96%)</strong>.</p>
+</div>
+<div id="forecast-model" class="section level2">
+<h2>Forecast Model</h2>
+<pre class="r"><code>autoplot(forecast(Arima(tail(ts, 200), model = model))) +
+  labs(x=&quot;Time&quot;, y=&quot;Energy Demand (GWh)&quot;) +
+  theme_classic()</code></pre>
+<p><img src="/post/energyD/2019-02-02-energy-demand-analysis-w-time-series-forecasting_files/figure-html/unnamed-chunk-27-1.png" width="672" /></p>
+</div>
+</div>

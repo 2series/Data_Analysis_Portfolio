@@ -1,0 +1,147 @@
+---
+title: NYC_Fights13
+author: Rihad Variawa
+date: '2019-03-27'
+slug: nyc-fights13
+categories:
+  - R
+header:
+  image: "headers/im.jpg"
+tags:
+  - plot
+image:
+  caption: ''
+  focal_point: ''
+---
+
+
+
+<div id="about-the-dataset" class="section level2">
+<h2>About the dataset</h2>
+<p>In this analysis, we explore the dplyr functions used to ask interesting questions of a more complex dataset We’ll use a dataset of flights that departed from New York city airports (including Newark, John F. Kennedy, and Laguardia airports) in 2013. This dataset is also featured online in the Introduction to dplyr vignette, and is drawn from the Bureau of Transportation Statistics database.</p>
+<p>This dataset will use over 300,000 observations to ask the following questions:</p>
+<ul>
+<li>Which airline has the highest number of delayed departures?</li>
+<li>On average, to which airport do flights arrive most early?</li>
+<li>In which month do flights tend to have the longest delays?</li>
+</ul>
+<div id="get-to-know-the-dataframe" class="section level3">
+<h3>get to know the dataframe</h3>
+<pre class="r"><code>## check the number of rows/columns
+dim(flights)</code></pre>
+<pre><code>## [1] 336776     19</code></pre>
+<pre class="r"><code>## inspect the column names
+colnames(flights) </code></pre>
+<pre><code>##  [1] &quot;year&quot;           &quot;month&quot;          &quot;day&quot;            &quot;dep_time&quot;      
+##  [5] &quot;sched_dep_time&quot; &quot;dep_delay&quot;      &quot;arr_time&quot;       &quot;sched_arr_time&quot;
+##  [9] &quot;arr_delay&quot;      &quot;carrier&quot;        &quot;flight&quot;         &quot;tailnum&quot;       
+## [13] &quot;origin&quot;         &quot;dest&quot;           &quot;air_time&quot;       &quot;distance&quot;      
+## [17] &quot;hour&quot;           &quot;minute&quot;         &quot;time_hour&quot;</code></pre>
+</div>
+<div id="identify-the-airline-carrier-that-has-the-highest-number-of-delayed-flights" class="section level3">
+<h3>Identify the airline (<code>carrier</code>) that has the highest number of delayed flights</h3>
+<pre class="r"><code>## start with the flights
+has_most_delays &lt;- flights %&gt;%
+  ## group by airline (carrier)
+  group_by(carrier) %&gt;%                    
+  ## find only the delays
+  filter(dep_delay &gt; 0) %&gt;%               
+  ## count the observations
+  summarize(num_delay = n()) %&gt;%           
+  ## find most delayed
+  filter(num_delay == max(num_delay)) %&gt;%  
+  ## select the airline
+  select(carrier)                          </code></pre>
+</div>
+<div id="get-name-of-the-most-delayed-carrier" class="section level3">
+<h3>Get name of the most delayed carrier</h3>
+<pre class="r"><code>## start with the previous answer
+most_delayed_name &lt;- has_most_delays %&gt;%   
+  ## join on airline ID
+  left_join(airlines, by = &quot;carrier&quot;) %&gt;%  
+  ## select the airline name
+  select(name)                             </code></pre>
+<pre class="r"><code>## access the value from the tibble
+print(most_delayed_name$name)</code></pre>
+<pre><code>## [1] &quot;United Air Lines Inc.&quot;</code></pre>
+</div>
+<div id="calculate-the-average-arrival-delay-arr_delay-for-each-destination-dest" class="section level3">
+<h3>Calculate the average arrival delay (<code>arr_delay</code>) for each destination (<code>dest</code>)</h3>
+<pre class="r"><code>most_early &lt;- flights %&gt;%
+  ## group by destination
+  group_by(dest) %&gt;%                     
+  ## compute mean delay
+  summarize(delay = mean(arr_delay))     </code></pre>
+</div>
+<div id="compute-the-average-delay-by-destination-airport-omitting-na-results" class="section level3">
+<h3># Compute the average delay by destination airport, omitting NA results</h3>
+<pre class="r"><code>most_early &lt;- flights %&gt;%
+  ## group by destination
+  group_by(dest) %&gt;%                                 
+  ## compute mean delay
+  summarize(delay = mean(arr_delay, na.rm = TRUE))   </code></pre>
+</div>
+<div id="identify-the-destination-where-flights-on-average-arrive-most-early" class="section level3">
+<h3>Identify the destination where flights, on average, arrive most early</h3>
+<pre class="r"><code>most_early &lt;- flights %&gt;%
+  ## group by destination
+  group_by(dest) %&gt;%                                      
+  ## compute mean delay, ignore NA
+  summarize(delay = mean(arr_delay, na.rm = TRUE)) %&gt;%    
+  ## filter for the *least* delayed
+  filter(delay == min(delay, na.rm = TRUE)) %&gt;%           
+  ## select the destination (and delay to store it)
+  select(dest, delay) %&gt;%                                 
+  ## join on `airports`dataframe
+  left_join(airports, by = c(&quot;dest&quot; = &quot;faa&quot;)) %&gt;%         
+  ## select output variables of interest
+  select(dest, name, delay)                               </code></pre>
+<pre class="r"><code>print(most_early)</code></pre>
+<pre><code>## # A tibble: 1 x 3
+##   dest  name       delay
+##   &lt;chr&gt; &lt;chr&gt;      &lt;dbl&gt;
+## 1 LEX   Blue Grass   -22</code></pre>
+</div>
+<div id="identify-the-month-in-which-flights-tend-to-have-the-longest-delays" class="section level3">
+<h3>Identify the month in which flights tend to have the longest delays</h3>
+<pre class="r"><code>flights %&gt;%
+  ## group by selected feature
+  group_by(month) %&gt;%                                      
+  ## summarize value of interest
+  summarize(delay = mean(arr_delay, na.rm = TRUE)) %&gt;%     
+  ## filter for the record of interest
+  filter(delay == max(delay)) %&gt;%                          
+  ## select the column that answers the question
+  select(month) %&gt;%                                        
+  ## print the tibble out directly
+  print()                                                  </code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   month
+##   &lt;int&gt;
+## 1     7</code></pre>
+</div>
+<div id="compute-delay-by-month-adding-month-names-for-visual-display-note-month.name-is-a-variable-build-into-r" class="section level3">
+<h3>Compute delay by month, adding month names for visual display, note ‘month.name’ is a variable build into R</h3>
+<pre class="r"><code>delay_by_month &lt;- flights %&gt;%
+  group_by(month) %&gt;%
+  summarize(delay = mean(arr_delay, na.rm = TRUE)) %&gt;%
+  select(delay) %&gt;%
+  mutate(month = month.name)</code></pre>
+</div>
+<div id="create-a-plot-using-the-ggplot2-package" class="section level3">
+<h3># Create a plot using the ggplot2 package</h3>
+<pre class="r"><code>ggplot(data = delay_by_month) +
+  geom_point(
+    mapping = aes(x = delay, y = month), 
+    color = &quot;blue&quot;,
+    alpha = .4, 
+    size = 3
+    ) +
+  geom_vline(xintercept = 0, size = .25) +
+  xlim(c(-20, 20)) +
+  scale_y_discrete(limits = rev(month.name)) +
+  theme_classic() +
+  labs(title = &quot;Average Delay by Month&quot;, y = &quot;&quot;, x = &quot;Delay (minutes)&quot;)</code></pre>
+<p><img src="/post/nycflights13/2019-03-27-nyc-fights13_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+</div>
+</div>
