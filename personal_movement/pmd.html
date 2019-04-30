@@ -1,0 +1,164 @@
+---
+title: "Personal Movement Monitoring Devices"
+author: "Rihad Variawa"
+date: "2019-04-29"
+output: html_document
+summary: 'An analysis of personal activity monitoring device'
+tags:
+  - R
+  - Data Analytics
+header:
+  image: 'headers/ft.jpg'
+---
+
+
+
+<div id="introduction" class="section level3">
+<h3>Introduction</h3>
+<p>It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.</p>
+<p>This analysis makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through-out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.</p>
+<p>The data for this analysis can be downloaded from the course web site:</p>
+<ul>
+<li>Dataset: <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip">Activity monitoring data</a></li>
+</ul>
+<p>The variables included in this dataset are:</p>
+<ul>
+<li>steps: Number of steps taking in a 5-minute interval (missing values are coded as 𝙽𝙰)</li>
+<li>date: The date on which the measurement was taken in YYYY-MM-DD format</li>
+<li>interval: Identifier for the 5-minute interval in which measurement was taken</li>
+</ul>
+<p>The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.</p>
+</div>
+<div id="loading-and-preprocessing-the-data" class="section level3">
+<h3>Loading and preprocessing the data</h3>
+<p>Unzip data to obtain a csv file.</p>
+<pre class="r"><code>fileUrl &lt;- &quot;https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip&quot;
+download.file(fileUrl, destfile = paste0(getwd(), &#39;/repdata%2Fdata%2Factivity.zip&#39;), method = &quot;curl&quot;)
+unzip(&quot;repdata%2Fdata%2Factivity.zip&quot;,exdir = &quot;data&quot;)</code></pre>
+</div>
+<div id="reading-csv-data-into-data.table." class="section level3">
+<h3>Reading csv Data into Data.Table.</h3>
+<pre class="r"><code>activityDT &lt;- data.table::fread(input = &quot;data/activity.csv&quot;)</code></pre>
+</div>
+<div id="what-is-mean-total-number-of-steps-taken-per-day" class="section level3">
+<h3>What is mean total number of steps taken per day?</h3>
+<ol style="list-style-type: decimal">
+<li>Calculate the total number of steps taken per day.</li>
+</ol>
+<pre class="r"><code>Total_Steps &lt;- activityDT[, c(lapply(.SD, sum, na.rm = FALSE)), .SDcols = c(&quot;steps&quot;), by = .(date)] 
+
+head(Total_Steps, 10)</code></pre>
+<pre><code>          date steps
+ 1: 2012-10-01    NA
+ 2: 2012-10-02   126
+ 3: 2012-10-03 11352
+ 4: 2012-10-04 12116
+ 5: 2012-10-05 13294
+ 6: 2012-10-06 15420
+ 7: 2012-10-07 11015
+ 8: 2012-10-08    NA
+ 9: 2012-10-09 12811
+10: 2012-10-10  9900</code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li>Make a histogram of the total number of steps taken each day.</li>
+</ol>
+<pre class="r"><code>ggplot(Total_Steps, aes(x = steps)) +
+    geom_histogram(fill = &quot;blue&quot;, binwidth = 1000) +
+    labs(title = &quot;Daily Steps&quot;, x = &quot;Steps&quot;, y = &quot;Frequency&quot;) +
+  theme_classic()</code></pre>
+<pre><code>Warning: Removed 8 rows containing non-finite values (stat_bin).</code></pre>
+<p><img src="/project/personal_movement/pmd_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<ol start="3" style="list-style-type: decimal">
+<li>Calculate and report the mean and median of the total number of steps taken per day.</li>
+</ol>
+<pre class="r"><code>Total_Steps[, .(Mean_Steps = mean(steps, na.rm = TRUE), Median_Steps = median(steps, na.rm = TRUE))]</code></pre>
+<pre><code>   Mean_Steps Median_Steps
+1:   10766.19        10765</code></pre>
+</div>
+<div id="what-is-the-average-daily-activity-pattern" class="section level3">
+<h3>What is the average daily activity pattern?</h3>
+<ol style="list-style-type: decimal">
+<li>Make a time series plot (i.e. 𝚝𝚢𝚙𝚎 = “𝚕”) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).</li>
+</ol>
+<pre class="r"><code>IntervalDT &lt;- activityDT[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c(&quot;steps&quot;), by = .(interval)] 
+
+ggplot(IntervalDT, aes(x = interval , y = steps)) + geom_line(color=&quot;blue&quot;, size=1) + labs(title = &quot;Avg. Daily Steps&quot;, x = &quot;Interval&quot;, y = &quot;Avg. Steps per day&quot;) +
+  theme_classic()</code></pre>
+<p><img src="/project/personal_movement/pmd_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<ol start="2" style="list-style-type: decimal">
+<li>Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?</li>
+</ol>
+<pre class="r"><code>IntervalDT[steps == max(steps), .(max_interval = interval)]</code></pre>
+<pre><code>   max_interval
+1:          835</code></pre>
+</div>
+<div id="imputing-missing-values" class="section level3">
+<h3>Imputing missing values</h3>
+<ol style="list-style-type: decimal">
+<li>Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s)</li>
+</ol>
+<pre class="r"><code>activityDT[is.na(steps), .N ]</code></pre>
+<pre><code>[1] 2304</code></pre>
+<pre class="r"><code># alternative solution
+nrow(activityDT[is.na(steps),])</code></pre>
+<pre><code>[1] 2304</code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li>Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.</li>
+</ol>
+<p>Filling in missing values with median of dataset.</p>
+<pre class="r"><code>activityDT[is.na(steps), &quot;steps&quot;] &lt;- activityDT[, c(lapply(.SD, median, na.rm = TRUE)), .SDcols = c(&quot;steps&quot;)]</code></pre>
+<ol start="3" style="list-style-type: decimal">
+<li>Create a new dataset that is equal to the original dataset, but with the missing data filled in.</li>
+</ol>
+<pre class="r"><code>data.table::fwrite(x = activityDT, file = &quot;data/tidyData.csv&quot;, quote = FALSE)</code></pre>
+<ol start="4" style="list-style-type: decimal">
+<li>Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?</li>
+</ol>
+<pre class="r"><code># total number of steps taken per day
+Total_Steps &lt;- activityDT[, c(lapply(.SD, sum)), .SDcols = c(&quot;steps&quot;), by = .(date)] 
+
+# mean and median total number of steps taken per day
+Total_Steps[, .(Mean_Steps = mean(steps), Median_Steps = median(steps))]</code></pre>
+<pre><code>   Mean_Steps Median_Steps
+1:    9354.23        10395</code></pre>
+<pre class="r"><code>ggplot(Total_Steps, aes(x = steps)) + geom_histogram(fill = &quot;blue&quot;, binwidth = 1000) + labs(title = &quot;Daily Steps&quot;, x = &quot;Steps&quot;, y = &quot;Frequency&quot;) +
+  theme_classic()</code></pre>
+<p><img src="/project/personal_movement/pmd_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>Type of Estimate | Mean_Steps | Median_Steps</p>
+<p>First Part (with na) | 10765 | 10765
+Second Part (fillin in na with median) | 9354.23 | 10395</p>
+</div>
+<div id="are-there-differences-in-activity-patterns-between-weekdays-and-weekends" class="section level3">
+<h3>Are there differences in activity patterns between weekdays and weekends?</h3>
+<ol style="list-style-type: decimal">
+<li>Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.</li>
+</ol>
+<p>Just recreating activityDT from scratch then making the new factor variable. (No need to, just want to be clear on what the entire process is.)</p>
+<pre class="r"><code>activityDT &lt;- data.table::fread(input = &quot;data/activity.csv&quot;)
+activityDT[, date := as.POSIXct(date, format = &quot;%Y-%m-%d&quot;)]
+activityDT[, `Day of Week`:= weekdays(x = date)]
+activityDT[grepl(pattern = &quot;Monday|Tuesday|Wednesday|Thursday|Friday&quot;, x = `Day of Week`), &quot;weekday or weekend&quot;] &lt;- &quot;weekday&quot;
+activityDT[grepl(pattern = &quot;Saturday|Sunday&quot;, x = `Day of Week`), &quot;weekday or weekend&quot;] &lt;- &quot;weekend&quot;
+activityDT[, `weekday or weekend` := as.factor(`weekday or weekend`)]
+head(activityDT, 10)</code></pre>
+<pre><code>    steps       date interval Day of Week weekday or weekend
+ 1:    NA 2012-10-01        0      Monday            weekday
+ 2:    NA 2012-10-01        5      Monday            weekday
+ 3:    NA 2012-10-01       10      Monday            weekday
+ 4:    NA 2012-10-01       15      Monday            weekday
+ 5:    NA 2012-10-01       20      Monday            weekday
+ 6:    NA 2012-10-01       25      Monday            weekday
+ 7:    NA 2012-10-01       30      Monday            weekday
+ 8:    NA 2012-10-01       35      Monday            weekday
+ 9:    NA 2012-10-01       40      Monday            weekday
+10:    NA 2012-10-01       45      Monday            weekday</code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li>Make a panel plot containing a time series plot (i.e. 𝚝𝚢𝚙𝚎 = “𝚕”) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday, days or weekend days (y-axis).</li>
+</ol>
+<pre class="r"><code>activityDT[is.na(steps), &quot;steps&quot;] &lt;- activityDT[, c(lapply(.SD, median, na.rm = TRUE)), .SDcols = c(&quot;steps&quot;)]
+IntervalDT &lt;- activityDT[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c(&quot;steps&quot;), by = .(interval, `weekday or weekend`)] 
+
+ggplot(IntervalDT , aes(x = interval , y = steps, color=`weekday or weekend`)) + geom_line() + labs(title = &quot;Avg. Daily Steps by Weektype&quot;, x = &quot;Interval&quot;, y = &quot;No. of Steps&quot;) + facet_wrap(~`weekday or weekend` , ncol = 1, nrow=2) +
+  theme_classic()</code></pre>
+<p><img src="/project/personal_movement/pmd_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+</div>

@@ -1,0 +1,207 @@
+---
+title: "Investigating The Exponential Distribution & Compare It With The Central Limit Theorem"
+author: "Rihad Variawa"
+date: "2019-04-30"
+output: html_document
+summary: 'Central limit theorem'
+tags:
+  - R
+  - Data Analytics
+header:
+  image: 'headers/stt.jpg'
+---
+
+
+
+<p>The analysis consists of two parts:</p>
+<ol style="list-style-type: decimal">
+<li>A simulation exercise.</li>
+<li>Basic inferential data analysis.</li>
+</ol>
+<div id="analysis" class="section level3">
+<h3>Analysis</h3>
+<div id="a-simulation-exercise." class="section level4">
+<h4>1. A simulation exercise.</h4>
+<p>In this analysis I’ll investigate the exponential distribution in R and compare it with the Central Limit Theorem. The exponential distribution can be simulated in R with rexp(n, lambda) where lambda is the rate parameter. The mean of exponential distribution is 1/lambda and the standard deviation is also 1/lambda. Set lambda = 0.2 for all of the simulations. I’ll investigate the distribution of averages of 40 exponentials. Note that you will need to do a thousand simulations.</p>
+<p>Illustrate via simulation and associated explanatory text the properties of the distribution of the mean of 40 exponentials. You should</p>
+<ol style="list-style-type: decimal">
+<li>Show the sample mean and compare it to the theoretical mean of the distribution.</li>
+<li>Show how variable the sample is (via variance) and compare it to the theoretical variance of the distribution.</li>
+<li>Show that the distribution is approximately normal.</li>
+</ol>
+</div>
+</div>
+<div id="task" class="section level3">
+<h3>Task</h3>
+<pre class="r"><code># set seed for reproducability
+set.seed(31)
+
+# set lambda to 0.2
+lambda &lt;- 0.2
+
+# 40 samples
+n &lt;- 40
+
+# 1000 simulations
+simulations &lt;- 1000
+
+# simulate
+simulated_exponentials &lt;- replicate(simulations, rexp(n, lambda))
+
+# calculate mean of exponentials
+means_exponentials &lt;- apply(simulated_exponentials, 2, mean)</code></pre>
+</div>
+<div id="question-1" class="section level3">
+<h3>Question 1</h3>
+<p>Show where the distribution is centered at and compare it to the theoretical center of the distribution.</p>
+<pre class="r"><code>analytical_mean &lt;- mean(means_exponentials)
+analytical_mean</code></pre>
+<pre><code>[1] 4.993867</code></pre>
+<pre class="r"><code># analytical mean
+theory_mean &lt;- 1/lambda
+theory_mean</code></pre>
+<pre><code>[1] 5</code></pre>
+<pre class="r"><code># visualization
+hist(means_exponentials, xlab = &quot;mean&quot;, main = &quot;Exponential Function Simulations&quot;)
+abline(v = analytical_mean, col = &quot;red&quot;)
+abline(v = theory_mean, col = &quot;orange&quot;)</code></pre>
+<p><img src="/project/exponential_distribution/stats_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>The analytics mean is 4.993867 the theoretical mean 5. The center of distribution of averages of 40 exponentials is very close to the theoretical center of the distribution.</p>
+</div>
+<div id="question-2" class="section level3">
+<h3>Question 2</h3>
+<p>Show how variable it is and compare it to the theoretical variance of the distribution..</p>
+<pre class="r"><code># standard deviation of distribution
+standard_deviation_dist &lt;- sd(means_exponentials)
+standard_deviation_dist</code></pre>
+<pre><code>[1] 0.7931608</code></pre>
+<pre class="r"><code># standard deviation from analytical expression
+standard_deviation_theory &lt;- (1/lambda)/sqrt(n)
+standard_deviation_theory</code></pre>
+<pre><code>[1] 0.7905694</code></pre>
+<pre class="r"><code># variance of distribution
+variance_dist &lt;- standard_deviation_dist^2
+variance_dist</code></pre>
+<pre><code>[1] 0.6291041</code></pre>
+<pre class="r"><code># variance from analytical expression
+variance_theory &lt;- ((1/lambda)*(1/sqrt(n)))^2
+variance_theory</code></pre>
+<pre><code>[1] 0.625</code></pre>
+<p>Standard Deviation of the distribution is 0.7931608 with the theoretical SD calculated as 0.7905694. The Theoretical variance is calculated as ((1 / ??) * (1/???n))<sup>2</sup> = 0.625. The actual variance of the distribution is 0.6291041</p>
+</div>
+<div id="question-3" class="section level3">
+<h3>Question 3</h3>
+<p>Show that the distribution is approximately normal.</p>
+<pre class="r"><code>xfit &lt;- seq(min(means_exponentials), max(means_exponentials), length=100)
+yfit &lt;- dnorm(xfit, mean=1/lambda, sd=(1/lambda/sqrt(n)))
+hist(means_exponentials,breaks=n,prob=T,col=&quot;orange&quot;,xlab = &quot;means&quot;,main=&quot;Density of means&quot;,ylab=&quot;density&quot;)
+lines(xfit, yfit, pch=22, col=&quot;black&quot;, lty=5)</code></pre>
+<p><img src="/project/exponential_distribution/stats_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<pre class="r"><code># compare the distribution of averages of 40 exponentials to a normal distribution
+qqnorm(means_exponentials)
+qqline(means_exponentials, col = 2)</code></pre>
+<p><img src="/project/exponential_distribution/stats_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<p>Due to Due to the central limit theorem (CLT), the distribution of averages of 40 exponentials is very close to a normal distribution.</p>
+<div id="basic-inferential-data-analysis." class="section level4">
+<h4>2. Basic inferential data analysis.</h4>
+<p>Now in the second portion of this analysis, we’re going to analyze the ToothGrowth data in the R datasets package.</p>
+<ul>
+<li>Load the ToothGrowth data and perform some basic exploratory data analyses</li>
+<li>Provide a basic summary of the data.</li>
+<li>Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose. (Only use the techniques from class, even if there’s other approaches worth considering)</li>
+<li>State your conclusions and the assumptions needed for your conclusions.</li>
+</ul>
+</div>
+</div>
+<div id="load-the-toothgrowth-data-and-perform-some-basic-exploratory-data-analyses" class="section level3">
+<h3>Load the ToothGrowth data and perform some basic exploratory data analyses</h3>
+<pre class="r"><code># load the data ToothGrowth
+data(ToothGrowth)
+
+# preview the structure of the data
+str(ToothGrowth)</code></pre>
+<pre><code>&#39;data.frame&#39;:   60 obs. of  3 variables:
+ $ len : num  4.2 11.5 7.3 5.8 6.4 10 11.2 11.2 5.2 7 ...
+ $ supp: Factor w/ 2 levels &quot;OJ&quot;,&quot;VC&quot;: 2 2 2 2 2 2 2 2 2 2 ...
+ $ dose: num  0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 ...</code></pre>
+<pre class="r"><code># preview first 5 rows of the data
+head(ToothGrowth, 5)</code></pre>
+<pre><code>   len supp dose
+1  4.2   VC  0.5
+2 11.5   VC  0.5
+3  7.3   VC  0.5
+4  5.8   VC  0.5
+5  6.4   VC  0.5</code></pre>
+</div>
+<div id="provide-a-basic-summary-of-the-data." class="section level3">
+<h3>Provide a basic summary of the data.</h3>
+<pre class="r"><code># data summary
+summary(ToothGrowth)</code></pre>
+<pre><code>      len        supp         dose      
+ Min.   : 4.20   OJ:30   Min.   :0.500  
+ 1st Qu.:13.07   VC:30   1st Qu.:0.500  
+ Median :19.25           Median :1.000  
+ Mean   :18.81           Mean   :1.167  
+ 3rd Qu.:25.27           3rd Qu.:2.000  
+ Max.   :33.90           Max.   :2.000  </code></pre>
+<pre class="r"><code># compare means of the different delivery methods
+tapply(ToothGrowth$len,ToothGrowth$supp, mean)</code></pre>
+<pre><code>      OJ       VC 
+20.66333 16.96333 </code></pre>
+<pre class="r"><code># plot data graphically
+ggplot(ToothGrowth, aes(factor(dose), len, fill = factor(dose))) +
+      geom_boxplot() +
+      # facet_grid(.~supp)+
+      facet_grid(.~supp, labeller = as_labeller(
+            c(&quot;OJ&quot; = &quot;Orange juice&quot;, 
+              &quot;VC&quot; = &quot;Ascorbic Acid&quot;))) +
+      labs(title = &quot;Tooth growth of 60 guinea pigs by dosage and\nby delivery method of vitamin C&quot;,
+           x = &quot;Dose in milligrams/day&quot;, 
+           y = &quot;Tooth Lengh&quot;) +
+      scale_fill_discrete(name = &quot;Dosage of\nvitamin C\nin mg/day&quot;) +
+  theme_classic()</code></pre>
+<p><img src="/project/exponential_distribution/stats_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+</div>
+<div id="use-confidence-intervals-andor-hypothesis-tests-to-compare-tooth-growth-by-supp-and-dose." class="section level3">
+<h3>Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose.</h3>
+<pre class="r"><code># comparison by delivery method for the same dosage
+t05 &lt;- t.test(len ~ supp, 
+       data = rbind(ToothGrowth[(ToothGrowth$dose == 0.5) &amp; 
+                                      (ToothGrowth$supp == &quot;OJ&quot;),],
+                    ToothGrowth[(ToothGrowth$dose == 0.5) &amp; 
+                                      (ToothGrowth$supp == &quot;VC&quot;),]), 
+       var.equal = FALSE)
+
+t1 &lt;- t.test(len ~ supp, 
+       data = rbind(ToothGrowth[(ToothGrowth$dose == 1) &amp; 
+                                      (ToothGrowth$supp == &quot;OJ&quot;),],
+                    ToothGrowth[(ToothGrowth$dose == 1) &amp; 
+                                      (ToothGrowth$supp == &quot;VC&quot;),]), 
+       var.equal = FALSE)
+
+t2 &lt;- t.test(len ~ supp, 
+       data = rbind(ToothGrowth[(ToothGrowth$dose == 2) &amp; 
+                                      (ToothGrowth$supp == &quot;OJ&quot;),],
+                    ToothGrowth[(ToothGrowth$dose == 2) &amp; 
+                                      (ToothGrowth$supp == &quot;VC&quot;),]), 
+       var.equal = FALSE)
+
+# summary of the conducted t.tests, which compare the delivery methods by dosage,
+# take p-values and CI
+summaryBYsupp &lt;- data.frame(
+      &quot;p-value&quot; = c(t05$p.value, t1$p.value, t2$p.value),
+      &quot;Conf.Low&quot; = c(t05$conf.int[1],t1$conf.int[1], t2$conf.int[1]),
+      &quot;Conf.High&quot; = c(t05$conf.int[2],t1$conf.int[2], t2$conf.int[2]),
+      row.names = c(&quot;Dosage .05&quot;,&quot;Dosage 1&quot;,&quot;Dosage 2&quot;))
+
+# show data table 
+summaryBYsupp</code></pre>
+<pre><code>               p.value  Conf.Low Conf.High
+Dosage .05 0.006358607  1.719057  8.780943
+Dosage 1   0.001038376  2.802148  9.057852
+Dosage 2   0.963851589 -3.798070  3.638070</code></pre>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>With 95% confidence we reject the null hypothesis, stating that there is no difference in the tooth growth by the delivery method for .5 and 1 milligrams/day. We observe p-values less than the treshold of .05 and the confidence levels don’t include 0. So, for dosage of .5 milligrams/day and 1 milligrams/day does matter the delivery method. With 95% confidence we fail to reject the null hypothesis, stating that there is no difference in the tooth growth by the delivery method for 2 milligrams/day. We observe p-values more than the treshold of .05 and the confidence levels include 0. So, for dosage of 2 milligrams/day the delivery method doesn’t matter.</p>
+</div>
