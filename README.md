@@ -1,6 +1,6 @@
 # Data_Analysis
 
-![](images/im.png)
+![](https://media.giphy.com/media/2sfgo6v1ihOGKVptoB/giphy.gif)
 
 Data Science Projects using Python and R
 
